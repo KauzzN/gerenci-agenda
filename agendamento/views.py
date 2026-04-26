@@ -4,7 +4,7 @@ from .forms import AgendamentoForm
 
 # Create your views here.
 def lista_agendamentos(request):
-    agendamentos = Agendamento.objects.all().order_by('horario')
+    agendamentos = Agendamento.objects.all().order_by('atendido', 'horario')
 
     return render(request, 'lista.html', {
         'agendamentos': agendamentos
