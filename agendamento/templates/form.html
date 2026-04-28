@@ -6,70 +6,87 @@
     <title>Agendamento</title>
 
     <style>
-      body {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        flex-direction: column;
-        background-color: white;
-        gap: 5px;
-      }
+    body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f5f6fa;
+    font-family: Arial, cans-serif;
+    margin: 0;
+    height: 100vh;
+    }
 
-      .container {
-        background-color: #f5f6fa;
-        width: 100%;
-        max-width: 800px;
-        gap: 5px;
-      }
+    .container {
+    background-color: white;
+    padding: 25px;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
 
-      h1 {
-        font-family: Arial, sans-serif;
-      }
+    h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    }
 
-      .mb-3 {
-        max-width:750px; 
-        width: 100%;
-        padding: 10px;
-      }
+    label {
+    display: block;
+    margin-bottom: 5px;
+    }
 
-      form {
-        padding: 20px;
-        border-radius: 10px;
-      }
+    input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    }
 
-      .btn-success {
-        padding: 10px 10px;
-        background-color: #f2f2f2;
-        border-radius: 6px;
-        border: 1px solid #aaa;
-        text-decoration: none;
-        color: black;
-      }
+    .btn {
+    display: inline-block;
+    padding: 8px 12px;
+    background-color: #f2f2f2;
+    border-radius: 6px;
+    text-decoration: none;
+    color: black;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s all;
+    }
+
+    .btn:hover {
+    background-color: #343a40;
+    color: white;
+    }
+
+    .actions {
+    display: flex;
+    justify-content: space-between;
+    }
 
     </style>
   </head>
   <body>
- 
+    
+    <div class="container">
+
     <h1>Novo Agendamento</h1>
 
-    <form method="post" class="container mt-4">
+    <form method="post">
       {% csrf_token %}
 
-      <div class="mb-3">
         <label>Nome</label>
         {{ form.nome }}
-      </div>
 
-      <div class="mb-3">
         <label>Horário</label>
         {{ form.horario }}
-      </div>
-
-      <button type="submit" class="btn-success">Salvar</button>
       
+      <div class="actions">
+        <button type="submit" class="btn">Salvar</button>
+        <a href="/" class="btn">Voltar</a>
+      </div>
     </form>
-
-    <a href="/" class="btn-success">Voltar</a>
-
+    </div>
   </body>
 </html>
