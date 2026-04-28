@@ -1,95 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Agendamentos</title>
 
-    <style>
-     body {
-       font-familly: Arial, sans-serif;
-       padding: 20px;
-     }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agendamentos</title>
 
-     h1 {
-       margin-bottom: 20px;
-     }
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f5f6fa;
+      font-family: Arial, sans-serif;
+    }
 
-     a {
-       text-decoration: none;
-       margin-right: 10px;
-     }
+    h1 {
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
 
-     .btn {
-       padding: 5px 10px;
-       border: 1px solid #ccc;
-       border radius: 4px;
-       background-color: #f5f5f5;
-     }
+    table {
+      background-color: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
 
-     .btn:hover {
-       background-color: #e0e0e0;
-     }
+    th {
+      background-color: #343a40;
+      color: white;
+    }
 
-     .btn-danger {
-       color: red;
-     }
+    td,
+    th {
+      padding: 12px;
+      text-align: center;
+    }
 
-     .btn-success {
-       color: green;
-     }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
 
-     table {
-       border-collapse: collapse;
-       width: 100%;
-       margin-top: 20px;
-     }
+    /* linha de atendido */
+    .atendido {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
 
-     th, td {
-       padding: 10px;
-       border: 1px solid #ccc;
-       text-align: left;
-     }
+    /* botões */
+    .btn {
+      padding: 12px 10px;
+      background-color: #f2f2f2;
+      gap: 6px;
+      border-radius: 6px;
+      text-decoration: None;
+      color: black;
+    }
 
-     tr.atendido {
-       opacity: 0.5;
-     }
-    </style>
-  </head>
-  <body>
-  
+    /* form */
+    form {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    /* inputs */
+    input {
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+
   <h1>Agendamentos</h1>
 
   <a href="/novo/" class="btn">Novo Agendamento</a>
 
-    <table>
-      <tr>
-        <th>Nome</th>
-        <th>Horário</th>
-        <th>Status</th>
-        <th>Ações</th>
-      </tr>
+  <table>
+    <tr>
+      <th>Nome</th>
+      <th>Horário</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
 
-      {% for a in agendamentos %}
-      <tr class-"{% if a.atendido %}atendido{% endif %}">
-        <td>{{ a.nome }}</td>
-        <td>{{ a.horario }}</td>
-        <td>
-          {% if a.atendido %}
-            ✔️
-          {% else %}
-            ❌
-          {% endif %}
-        </td>
-      </tr>
+    {% for a in agendamentos %}
+    <tr class-"{% if a.atendido %}atendido{% endif %}">
+      <td>{{ a.nome }}</td>
+      <td>{{ a.horario|date:"d/m/Y H:i" }}</td>
       <td>
-       <a href="/editar/{{ a.id }}/" class="btn">Editar</a>
-       <a href="/excluir/{{ a.id }}/" class="btn">Excluir</a>
-       <a href="/atendido/{{ a.id }}/" class="btn">Atendido</a>
+        {% if a.atendido %}
+        ✔️
+        {% else %}
+        ❌
+        {% endif %}
       </td>
+    </tr>
+    <td>
+      <a href="/editar/{{ a.id }}/" class="btn">Editar</a>
+      <a href="/excluir/{{ a.id }}/" class="btn">Excluir</a>
+      <a href="/atendido/{{ a.id }}/" class="btn">Atendido</a>
+    </td>
 
-      {% endfor %}
-    </table>
+    {% endfor %}
+  </table>
 
-  </body>
+</body>
+
 </html>
