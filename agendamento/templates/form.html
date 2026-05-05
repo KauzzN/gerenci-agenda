@@ -68,25 +68,44 @@
     </style>
   </head>
   <body>
-    
-    <div class="container">
+  <div class="container">
 
     <h1>Novo Agendamento</h1>
 
     <form method="post">
       {% csrf_token %}
 
-        <label>Nome</label>
-        {{ form.nome }}
+      <!-- erro geral -->
+      {% if form.non_field_errors %}
+        <div style="color: red; margin-bottom: 10px;">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
 
-        <label>Horário</label>
-        {{ form.horario }}
-      
+      <label>Nome</label>
+      {{ form.nome }}
+
+      {% if form.nome.errors %}
+        <div style="color: red; margin-bottom: 10px;">
+          {{ form.nome.errors }}
+        </div>
+      {% endif %}
+
+      <label>Horário</label>
+      {{ form.horario }}
+
+      {% if form.horario.errors %}
+        <div style="color: red; margin-bottom: 10px;">
+          {{ form.horario.errors }}
+        </div>
+      {% endif %}
+
       <div class="actions">
         <button type="submit" class="btn">Salvar</button>
         <a href="/" class="btn">Voltar</a>
       </div>
+
     </form>
-    </div>
-  </body>
-</html>
+  </div>
+</body>
+</html><div id="">
