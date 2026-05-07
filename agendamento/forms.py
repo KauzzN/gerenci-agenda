@@ -26,4 +26,15 @@ class AgendamentoForm(forms.ModelForm):
             if horario < timezone.localtime():
                 raise forms.ValidationError('Não pode agendar no passado.')
 
+            if horario.minute not in [0, 30]:
+                raise forms.ValidationError('Escolha horários de 30 em 30 minutos (ex: 14:00, 14:30)')
+
+            conflito = Agendamento.objects.filter(horario=horario)
+
+            if self.instance.pk:
+                conflito = conflito.exclude(pk=self.instance.pk)
+
+            if conflito.exists():
+                raise forms.ValidationError('Já existe um agendamento nesse horário.')
+
         return horario
