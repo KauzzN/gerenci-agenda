@@ -31,8 +31,6 @@ def jwt_required(view_func):
                 algorithms=["HS256"]
             )
             
-            print(payload)
-            
             user_id = payload.get("sub")
             
             user = User.objects.get(id=user_id)
