@@ -1,15 +1,16 @@
 import json
+from django.http import JsonResponse
 
 
 from .models import Agendamento
-from .forms import AgendamentoForm
-from django.http import JsonResponse
-from users.decorators import jwt_required
-from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
-from .utils.agendamento_utils import parse_json_body
 from datetime import datetime
 from django.utils  import timezone
+
+#Validações importadas
+from users.decorators import jwt_required
+from .validators import validar_horario
+from .utils.agendamento_utils import parse_json_body
 
 # Create your views here.
 
@@ -50,19 +51,15 @@ def criar_agendamento(request):
             "error": "método não permitido"
         }, status=405)
     
-    
     user = request.user
-    
-    if user is None:
-        return JsonResponse({
-            "error": "usuário inválido"
-        }, status=401)
         
-    data, error = parse_json_body(request)
+    data, erro = parse_json_body(request)
     
-    if error:
-        return error
-    
+    if erro:
+        return JsonResponse({
+            "error": erro
+        }, status=400)
+
     
     nome =  data.get("nome")
     horario = data.get("horario")
@@ -72,30 +69,11 @@ def criar_agendamento(request):
             "error": "nome e horario são obrigatórios"
         }, status=400)
     
-    try:
-        horario = datetime.fromisoformat(horario)
-        
-    except ValueError:
+    horario, erro = validar_horario(horario)
+    
+    if erro:
         return JsonResponse({
-            "error": "formato de horário inválido"
-        }, status=400)
-        
-        
-    if timezone.is_naive(horario):
-        horario = timezone.make_aware(
-            horario,
-            timezone.get_current_timezone()
-        )
-        
-        
-    if horario < timezone.now():
-        return JsonResponse({
-            "error": "não é possivel agendar no passado"
-        }, status=400)
-        
-    if horario.minute not in [0, 30]:
-        return JsonResponse({
-            "error": "horário deve ser de 30 em 30 minutos"
+            "error": erro
         }, status=400)
         
     conflito = Agendamento.objects.filter(
@@ -131,20 +109,19 @@ def update_agendamentos(request, id_agend):
     user = request.user
     
     try:
-        agendamento = Agendamento.objects.get(
-            id=id_agend,
-            user=user
-        )
+        agendamento = Agendamento.objects.get(id=id_agend,user=user)
 
     except Agendamento.DoesNotExist:
         return JsonResponse({
             "error": "agendamento não encontrado"
         }, status=404)
         
-    data, error = parse_json_body(request)
+    data, erro = parse_json_body(request)
     
-    if error:
-        return error
+    if erro:
+        return JsonResponse({
+            "error": erro
+        }, status=400)
 
     nome = data.get("nome")
     horario = data.get("horario")
@@ -154,28 +131,11 @@ def update_agendamentos(request, id_agend):
             "error": "nome e horário são necessarios"
         }, status=400)
         
-    try:
-        horario = datetime.fromisoformat(horario)
-        
-    except ValueError:
-        return JsonResponse({
-            "error": "formato de horário inválido"
-        }, status=400)
-        
-    if timezone.is_naive(horario):
-        horario = timezone.make_aware(
-            horario,
-            timezone.get_current_timezone()
-        )
+    horario, erro = validar_horario(horario)
     
-    if horario < timezone.now():
+    if erro:
         return JsonResponse({
-            "error": "não é possivel agendar no passado"
-        }, status=400)
-        
-    if horario.minute not in [0, 30]:
-        return JsonResponse({
-            "error": "horário deve ser de 30 em 30 minutos"
+            "error": erro
         }, status=400)
         
     conflito = Agendamento.objects.filter(user=user,horario=horario).exclude(
@@ -196,20 +156,5 @@ def update_agendamentos(request, id_agend):
         "message": "agendamento atualizado com sucesso"
     }, status=200)
     
-    
-        
-        
-
-
-def excluir_agendamento(request, id):
-    agendamento = Agendamento.objects.get(id=id)
-    agendamento.delete()
-    return redirect('lista')
-
-def marcar_atendido(request,id):
-    agendamento = Agendamento.objects.get(id=id)
-    agendamento.atendido = not agendamento.atendido
-    agendamento.save()
-    return redirect('lista')
 
 
