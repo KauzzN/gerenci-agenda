@@ -156,5 +156,55 @@ def update_agendamentos(request, id_agend):
         "message": "agendamento atualizado com sucesso"
     }, status=200)
     
+    
+@csrf_exempt
+@jwt_required
+def delete_agendamento(request, id_agend):
 
+    if request.method != "DELETE":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
 
+    user = request.user
+    
+    try:
+        agendamento = Agendamento.objects.get(id=id_agend, user=user)
+    except Agendamento.DoesNotExist:
+        return JsonResponse({
+            "error": "agendamento não encontrado"
+        }, status=404)
+    
+    agendamento.delete()
+    
+    return JsonResponse({
+        "message": "agendamento cancelado com sucesso!"
+    }, status=200)
+    
+    
+@csrf_exempt
+@jwt_required
+def marcar_atendido(request, id_agend):
+    
+    if request.method != "PATCH": 
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+    
+    user = request.user
+    
+    try:
+        agendamento = Agendamento.objects.get(id=id_agend, user=user)
+    except Agendamento.DoesNotExist:
+        return JsonResponse({
+            "error": "agendamento não encontrado"
+        }, status=404)
+        
+    agendamento.atendido = not agendamento.atendido
+    
+    agendamento.save(update_fields=["atendido"])
+    
+    return JsonResponse({
+        "message": "status alterado com sucesso",
+        "status": agendamento.atendido
+    }, status=200)
