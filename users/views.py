@@ -1,10 +1,11 @@
 import json
+from .decorators import jwt_required
 from django.http import JsonResponse
+from public.models import Profile
 from django.contrib.auth.models import User
+from .services.auth_services import generate_tokens
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
-from .services.auth_services import generate_tokens
-from .decorators import jwt_required
 
 # Create your views here.
 
@@ -31,6 +32,8 @@ def register(request):
         email=email,
         password=password
     )
+    
+    Profile.objects.create(user=user)
     
     return JsonResponse({
         "message": "usuario criado com sucesso"
