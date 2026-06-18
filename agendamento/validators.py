@@ -1,6 +1,6 @@
 import json
 from django.http import JsonResponse
-from datetime import datetime
+from datetime import datetime, date
 from django.utils import timezone
 
 
@@ -25,3 +25,19 @@ def validar_horario(horario):
         return None, "horário deve ser de 30 em 30 minutos"
         
     return horario, None
+
+def validar_data(data_str):
+    
+    if not data_str:
+        return None, "data não informada"
+    
+    try:
+        data = date.fromisoformat(data_str)
+        
+    except ValueError:
+        return None, "formato de data inválido"
+    
+    if data < timezone.localdate():
+        return None, "não é possivel consultar datas passadas"
+    
+    return data, None
