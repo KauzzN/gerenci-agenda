@@ -7,7 +7,7 @@ from agendamento.utils.agendamento_utils import parse_json_body
 from agendamento.validators import validar_data, validar_horario
 from agendamento.models import Agendamento
 from .models import Profile
-from .services.public_services import gerar_horarios_do_dia
+from .services.public_services import gerar_horarios_do_dia, atualizar_profile
 from django.views.decorators.csrf import csrf_exempt
 
 # Create your views here.
@@ -142,3 +142,25 @@ def agendar_horario(request, slug_barber):
     return JsonResponse({
         "message": "horario agendado com sucesso"
     }, status=201)
+    
+@csrf_exempt
+def read_profile(request, slug_barber):
+    if request.method != "GET":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+    
+    # Buscar e validar profile no banco
+    try:
+        profile = Profile.objects.get(public_slug=slug_barber)
+    except Profile.DoesNotExist:
+        return JsonResponse({
+            "error": "barbearia não encontrada"
+        }, status=404)
+        
+    # Retornar profile
+    return JsonResponse({
+        "barberaria": profile.public_slug,
+        "telefone": profile.telefone
+    })
+    

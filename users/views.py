@@ -6,6 +6,8 @@ from django.contrib.auth.models import User
 from .services.auth_services import generate_tokens
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
+from agendamento.utils.agendamento_utils import parse_json_body
+from public.services.public_services import atualizar_profile
 
 # Create your views here.
 
@@ -92,4 +94,47 @@ def me_user(request):
         "id": user.id,
         "username": user.username,
         "email": user.email
+    })
+    
+@csrf_exempt
+@jwt_required
+def update_profile(request):
+    if request.method != "PATCH":
+        return JsonResponse({
+            "error": "metódo não permitido"
+        }, status=405)
+        
+    print("entrou na view")
+    
+    # Buscar e validar Profile
+    try:
+        profile = request.user.profile
+    except Profile.DoesNotExist:
+        return JsonResponse({
+            "error": "barbearia não encontrada"
+        }, status=404)
+        
+    # Atualizar dados do Profile
+    data, error = parse_json_body(request)
+    
+    if error:
+        return JsonResponse({
+            "error": error
+        }, status=400)
+        
+    updated = atualizar_profile(profile, data)
+    
+    if not updated:
+        return JsonResponse({
+            "message": "nenhuma alteração realizada"
+        }, status=200)
+        
+    # Retornar sucesso
+    return JsonResponse({
+        "message": "profile atualizada",
+        "profile": {
+            "slug": profile.public_slug,
+            "nome_negocio": profile.nome_negocio,
+            "telefone": profile.telefone
+        }
     })
