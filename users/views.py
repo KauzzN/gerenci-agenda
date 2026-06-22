@@ -122,7 +122,12 @@ def update_profile(request):
             "error": error
         }, status=400)
         
-    updated = atualizar_profile(profile, data)
+    updated, error = atualizar_profile(profile, data)
+    
+    if error:
+        return JsonResponse({
+            "error": error
+        }, status=400)
     
     if not updated:
         return JsonResponse({
@@ -133,6 +138,7 @@ def update_profile(request):
     return JsonResponse({
         "message": "profile atualizada",
         "profile": {
+            "user": str(profile.user),
             "slug": profile.public_slug,
             "nome_negocio": profile.nome_negocio,
             "telefone": profile.telefone
