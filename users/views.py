@@ -1,9 +1,11 @@
 import json
+import hashlib
 from .decorators import jwt_required
 from django.http import JsonResponse
 from public.models import Profile
+from users.models import RefreshToken
 from django.contrib.auth.models import User
-from .services.auth_services import generate_tokens
+from .services.token_services import validate_refresh_token, generate_tokens
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from agendamento.utils.agendamento_utils import parse_json_body
@@ -72,12 +74,12 @@ def login_user(request):
         }, status=404)
         
     tokens = generate_tokens(user)
+    
+    print(tokens)
         
     return JsonResponse({
         "message": "autenticação concluida",
-        "tokens": {
-            "access_token": tokens["access_token"]
-        }
+        "tokens": tokens
     }, status=200)
     
 @csrf_exempt
@@ -144,3 +146,45 @@ def update_profile(request):
             "telefone": profile.telefone
         }
     })
+    
+@csrf_exempt
+def refresh_session(request):
+    
+    if request.method != "POST":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+        
+    data, error = parse_json_body(request)
+    
+    if error:
+        return JsonResponse({
+            "error": error
+        }, status=400)
+    
+    token = data.get("refresh_token")
+    
+    if not token:
+        return JsonResponse({
+            "error": "refresh_token não inserido"
+        }, status=400)
+        
+    refresh_token, error = validate_refresh_token(token)
+    
+    if error:
+        return JsonResponse({
+            "error": error
+        }, status=400)
+        
+    if refresh_token.user is None:
+        refresh_token.revoked = True
+        
+        return JsonResponse({
+            "error": "refresh_token inválido"
+        }, status=400)
+    
+    user = refresh_token.user
+    
+    return JsonResponse(generate_tokens(user))
+        
+    
