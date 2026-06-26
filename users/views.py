@@ -39,9 +39,19 @@ def register(request):
     
     Profile.objects.create(user=user)
     
+    user = authenticate(username=username, password=password)
+    
+    if not user:
+        return JsonResponse({
+            "error": "usuario não encontrado"
+        }, status=404)
+        
+    tokens = generate_tokens(user)
+        
     return JsonResponse({
-        "message": "usuario criado com sucesso"
-    }, status=201)
+        "message": "usuário criado com sucesso",
+        "tokens": tokens
+    }, status=200)
     
 @csrf_exempt
 def login_user(request):
@@ -74,8 +84,6 @@ def login_user(request):
         }, status=404)
         
     tokens = generate_tokens(user)
-    
-    print(tokens)
         
     return JsonResponse({
         "message": "autenticação concluida",
