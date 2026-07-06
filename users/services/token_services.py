@@ -16,7 +16,7 @@ def generate_access_token(user):
         "sub": str(user.id),
         "username": user.username,
         "iat": int(now.timestamp()),
-        "exp": int((now + timedelta(seconds=10)).timestamp()),
+        "exp": int((now + timedelta(minutes=30)).timestamp()),
         "jti": str(uuid.uuid4())
     }
     

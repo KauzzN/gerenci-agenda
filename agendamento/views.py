@@ -7,10 +7,11 @@ from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 from django.utils  import timezone
 
-#Validações importadas
+# Import validações, utils e services
 from users.decorators import jwt_required
-from .validators import validar_horario
+from .validators import validar_horario, validar_data_consulta
 from .utils.agendamento_utils import parse_json_body
+from .services import atualizar_agendamento_vencido
 
 # Create your views here.
 
@@ -24,7 +25,31 @@ def listar_agendamentos(request):
         
     user = request.user
     
-    agendamentos = Agendamento.objects.filter(user=user).order_by("horario")
+    data_str = request.GET.get("data")
+    
+    if not data_str:
+        data = timezone.localdate()
+    
+    else:
+        
+        data, error =  validar_data_consulta(data_str)
+        
+        if error:
+            return JsonResponse({
+                "error": error
+        }, status=404)
+    
+    atualizar_agendamento_vencido(user)
+    
+    agendamentos = Agendamento.objects.filter(
+        user=user,
+        horario__date=data,
+        status__in=[
+            Agendamento.Status.PENDENTE,
+            Agendamento.Status.ATENDIDO,
+            Agendamento.Status.FALTOU
+        ]
+    ).order_by("horario")
     
     agenda = []
     
@@ -33,7 +58,7 @@ def listar_agendamentos(request):
             "id": agendamento.id,
             "nome": agendamento.nome,
             "horario": agendamento.horario,
-            "atendido": agendamento.atendido
+            "status": agendamento.status
         }
         
         agenda.append(novo_horario)
@@ -184,27 +209,53 @@ def delete_agendamento(request, id_agend):
     
 @csrf_exempt
 @jwt_required
-def marcar_atendido(request, id_agend):
+def atualizar_status(request, id_agend):
     
     if request.method != "PATCH": 
         return JsonResponse({
             "error": "método não permitido"
         }, status=405)
+
+    status_validos = [
+        Agendamento.Status.PENDENTE,
+        Agendamento.Status.CANCELADO,
+        Agendamento.Status.ATENDIDO,
+        Agendamento.Status.FALTOU
+    ]
     
     user = request.user
+
+    data, error = parse_json_body(request)
+    
+    if error:
+        return JsonResponse({
+            "erro:": error
+        })
+    
+    
+    status_inserido = data.get("status").upper()
+    
+    if status_inserido not in status_validos:
+        return JsonResponse({
+            "error": "status inválido"
+        }, status=400)
+
     
     try:
         agendamento = Agendamento.objects.get(id=id_agend, user=user)
+
     except Agendamento.DoesNotExist:
         return JsonResponse({
             "error": "agendamento não encontrado"
         }, status=404)
         
-    agendamento.atendido = not agendamento.atendido
     
-    agendamento.save(update_fields=["atendido"])
+        
+    agendamento.status = status_inserido
+    
+    agendamento.save(update_fields=["status"])
     
     return JsonResponse({
         "message": "status alterado com sucesso",
-        "status": agendamento.atendido
+        "status": agendamento.status
     }, status=200)

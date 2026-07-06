@@ -41,3 +41,16 @@ def validar_data(data_str):
         return None, "não é possivel consultar datas passadas"
     
     return data, None
+
+def validar_data_consulta(data_str):
+    
+    if not data_str:
+        return None, "data não informada"
+    
+    try:
+        data = date.fromisoformat(data_str)
+        
+    except ValueError:
+        return None, "formato de data inválido"
+    
+    return data, None
