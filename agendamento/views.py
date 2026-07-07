@@ -17,6 +17,100 @@ from .services import atualizar_agendamento_vencido
 
 @csrf_exempt
 @jwt_required
+def historico_view(request):
+    if request.method != "GET":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+        
+    user = request.user
+    
+    agendamentos = Agendamento.objects.filter(
+        user=user
+    ).exclude(
+        status=Agendamento.Status.PENDENTE
+    ).order_by("-horario")
+    
+    lista_agendamentos = []
+    
+    for agendamento in agendamentos:
+        novo_agendamento = {
+            "id": agendamento.id,
+            "nome": agendamento.nome,
+            "horario": agendamento.horario,
+            "status": agendamento.status
+        }
+        
+        lista_agendamentos.append(novo_agendamento)
+        
+    return JsonResponse({
+        "historico": lista_agendamentos
+    })
+    
+
+@csrf_exempt
+@jwt_required
+def dashboard_view(request):
+    if request.method != "GET":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+
+    user = request.user
+    
+    atualizar_agendamento_vencido(user)
+        
+    hoje = timezone.localdate()
+    
+
+    agendamentos_hoje = Agendamento.objects.filter(
+        user=user,
+        horario__date=hoje
+    ).exclude(
+        status=Agendamento.Status.CANCELADO
+    )
+    
+    
+    total = agendamentos_hoje.count()
+    
+    pendentes = agendamentos_hoje.filter(
+        status=Agendamento.Status.PENDENTE
+    ).count()
+    
+    atendidos = agendamentos_hoje.filter(
+        status=Agendamento.Status.ATENDIDO
+    ).count()
+    
+    faltaram = agendamentos_hoje.filter(
+        status=Agendamento.Status.FALTOU
+    ).count()
+    
+    proximo_json = None
+    
+    proximo = agendamentos_hoje.filter(
+        status=Agendamento.Status.PENDENTE,
+        horario__gte=timezone.now()
+    ).order_by("horario").first()
+    
+    if proximo:
+        proximo_json = {
+            "nome": proximo.nome,
+            "horario": proximo.horario,
+            "status": proximo.status,
+            "telefone": proximo.telefone
+        }
+    
+    return JsonResponse({
+        "total": total,
+        "pendentes": pendentes,
+        "atendidos": atendidos,
+        "faltaram": faltaram,
+        
+        "proximo": proximo_json
+    })
+
+@csrf_exempt
+@jwt_required
 def listar_agendamentos(request):
     if request.method != "GET":
         return JsonResponse({

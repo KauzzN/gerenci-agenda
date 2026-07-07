@@ -19,7 +19,7 @@ class Agendamento(models.Model):
     )
     horario = models.DateTimeField()
     telefone = models.CharField(max_length=15)
-    servico = models.CharField(max_length=100)
+    servico = models.CharField(max_length=100, blank=True)
     
     user = models.ForeignKey(
         User,
