@@ -149,7 +149,7 @@ def update_profile(request):
         "message": "profile atualizada",
         "profile": {
             "user": str(profile.user),
-            "slug": profile.public_slug,
+            "public_slug": profile.public_slug,
             "nome_negocio": profile.nome_negocio,
             "telefone": profile.telefone
         }
@@ -195,4 +195,15 @@ def refresh_session(request):
     
     return JsonResponse(generate_tokens(user))
         
+
+@csrf_exempt
+@jwt_required
+def meu_profile(request):
     
+    profile = request.user.profile
+    
+    return JsonResponse({
+        "public_slug": profile.public_slug,
+        "nome_negocio": profile.nome_negocio,
+        "telefone": profile.telefone
+    })

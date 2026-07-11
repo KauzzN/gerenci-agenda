@@ -160,7 +160,8 @@ def read_profile(request, slug_barber):
         
     # Retornar profile
     return JsonResponse({
-        "barberaria": profile.public_slug,
+        "nome": profile.nome_negocio,
+        "barbearia": profile.public_slug,
         "telefone": profile.telefone
     })
     

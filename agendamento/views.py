@@ -244,8 +244,9 @@ def update_agendamentos(request, id_agend):
 
     nome = data.get("nome")
     horario = data.get("horario")
+    status = data.get("status")
     
-    if not nome or not horario:
+    if not nome or not horario or not status:
         return JsonResponse({
             "error": "nome e horário são necessarios"
         }, status=400)
@@ -268,6 +269,7 @@ def update_agendamentos(request, id_agend):
         
     agendamento.nome = nome
     agendamento.horario = horario
+    agendamento.status = status
     
     agendamento.save()
     
