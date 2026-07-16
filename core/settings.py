@@ -33,7 +33,7 @@ DEBUG = os.getenv('DEBUG') == 'True';
 ALLOWED_HOSTS = os.getenv(
     "ALLOWED_HOSTS",
     ""
-    ).split(",")
+).split(",")
 
 CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.dev",
@@ -69,12 +69,27 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'core.urls'
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
 WSGI_APPLICATION = 'core.wsgi.application'
 
-CORS_ALLOW_ALL_ORIGINS = os.getenv(
-    "CORS_ALLOW_ALL_ORIGINS",
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
     ""
-    ).split(",")
+).split(",")
 
 
 # Database
