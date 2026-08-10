@@ -112,10 +112,7 @@ def update_profile(request):
     if request.method != "PATCH":
         return JsonResponse({
             "error": "metódo não permitido"
-        }, status=405)
-        
-    print("entrou na view")
-    
+        }, status=405) 
     # Buscar e validar Profile
     try:
         profile = request.user.profile
@@ -151,7 +148,11 @@ def update_profile(request):
             "user": str(profile.user),
             "public_slug": profile.public_slug,
             "nome_negocio": profile.nome_negocio,
-            "telefone": profile.telefone
+            "telefone": profile.telefone,
+            "endereco": profile.endereco,
+            "instagram": profile.instagram,
+            "descricao": profile.descricao
+            
         }
     })
     

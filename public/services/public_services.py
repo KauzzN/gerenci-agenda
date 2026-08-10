@@ -86,6 +86,37 @@ def atualizar_profile(profile, data):
         if telefone != profile.telefone:
             profile.telefone = telefone
             updated = True
+
+    if "endereco" in data and data["endereco"].strip():
+
+        endereco = data["endereco"].strip()
+
+        if len(endereco) < 5:
+            return None, "endereço inválido"
+
+        if endereco != profile.endereco:
+            profile.endereco = endereco
+            updated = True
+
+    if "instagram" in data and data["instagram"].strip():
+
+        instagram = data["instagram"].strip()
+
+        if instagram != profile.instagram:
+            profile.instagram = instagram
+            updated = True
+
+    if "descricao" in data and data["descricao"].strip():
+
+        descricao = data["descricao"].strip()
+
+        if len(descricao) > 200:
+            return None, "Descrição muito longa"
+
+        if descricao != profile.descricao:
+
+            profile.descricao = descricao
+            updated = True
         
     if updated:
         profile.save()
