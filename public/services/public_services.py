@@ -27,6 +27,13 @@ def gerar_horarios_do_dia():
         
     return horarios
 
+def atualizar_horario(profile, data):
+
+    updated = False
+
+    
+        
+
 def atualizar_profile(profile, data):
     
     updated = False
