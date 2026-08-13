@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
+from django.http import JsonResponse
 from public.models import Profile
 from django.utils.text import slugify
 from django.core.validators import MinLengthValidator, RegexValidator
+from agendamento.validators import validar_horario_expediente
 
 def gerar_horarios_do_dia():
     
@@ -31,8 +33,51 @@ def atualizar_horario(profile, data):
 
     updated = False
 
+    inicio_expediente = data.get("horario_inicio")
+    fim_expediente = data.get("horario_fim")
+    inicio_almoco = data.get("inicio_almoco")
+    fim_almoco = data.get("fim_almoco")
     
-        
+
+    horario_inicio, horario_fim, comeco_almoco, final_almoco, erro = validar_horario_expediente(
+        inicio_expediente,
+        fim_expediente, 
+        inicio_almoco, 
+        fim_almoco)
+
+    if erro:
+        return False, erro
+
+    if horario_inicio is not None:
+
+        if horario_inicio != profile.horario_inicio:
+            profile.horario_inicio = horario_inicio
+            updated = True
+
+    if horario_fim is not None:
+
+        if horario_fim != profile.horario_fim:
+            profile.horario_fim = horario_fim
+            updated = True
+
+    if comeco_almoco is not None:
+
+        if comeco_almoco != profile.inicio_almoco:
+            profile.inicio_almoco = comeco_almoco
+            updated = True
+
+    if final_almoco is not None:
+
+        if final_almoco != profile.fim_almoco:
+            profile.fim_almoco = final_almoco
+            updated = True
+
+    if updated:
+        profile.save()
+
+    return updated, None
+    
+
 
 def atualizar_profile(profile, data):
     

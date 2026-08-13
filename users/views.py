@@ -9,7 +9,7 @@ from .services.token_services import validate_refresh_token, generate_tokens
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import authenticate, login, logout
 from agendamento.utils.agendamento_utils import parse_json_body
-from public.services.public_services import atualizar_profile
+from public.services.public_services import atualizar_profile, atualizar_horario
 
 # Create your views here.
 
@@ -130,10 +130,12 @@ def update_profile(request):
         }, status=400)
         
     updated, error = atualizar_profile(profile, data)
+
+    updated, error = atualizar_horario(profile, data)
     
     if error:
         return JsonResponse({
-            "error": error
+            "detail": error
         }, status=400)
     
     if not updated:
@@ -151,7 +153,11 @@ def update_profile(request):
             "telefone": profile.telefone,
             "endereco": profile.endereco,
             "instagram": profile.instagram,
-            "descricao": profile.descricao
+            "descricao": profile.descricao,
+            "inicio expediente": profile.horario_inicio,
+            "fim expediente": profile.horario_fim,
+            "inicio almoço": profile.inicio_almoco,
+            "fim almoço": profile.fim_almoco,
             
         }
     })
