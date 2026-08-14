@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'agendamento',
     'users',
     'public',
+    'servicos',
     'corsheaders'
 ]
 
