@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'users',
     'public',
     'servicos',
-    'corsheaders'
+    'corsheaders',
+    'cliente'
 ]
 
 
