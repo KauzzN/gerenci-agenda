@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import create_cliente, login_cliente
+from . import views
 
 urlpatterns = [
-    path("/cli/create/<str:slug_barber>", create_cliente),
-    path("/cli/signin", login_cliente)
+    path("/cli/teste/<str:slug_barber>", views.cliente_entry),
+    path("/cli/read", views.read_own_profile),
+    path("/cli/read/clients", views.read_profile_clients)
 ]

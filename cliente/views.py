@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from users.decorators import jwt_required
 from django.contrib.auth.models import User
-from .services import validar_cliente
+from .services import validar_cliente, validar_telefone
 from agendamento.utils.agendamento_utils import parse_json_body
 from .models import Cliente, ClienteProfissional
 from public.models import Profile
@@ -12,13 +12,13 @@ from users.services.token_services import generate_tokens
 # Create your views here.
 
 @csrf_exempt
-def create_cliente(request, slug_barber):
+def cliente_entry(request, slug_barber):
 
     # Checa método http
     if request.method != "POST":
 
         return JsonResponse({
-            "error": "metodo não permitido"
+            "error": "método não permitido"
         }, status=405)
 
     # Busca profissional pelo Slug
@@ -31,9 +31,9 @@ def create_cliente(request, slug_barber):
     except Profile.DoesNotExist:
 
         return JsonResponse({
-            "detail": "profissional não encontra"
+            "detail": "profissional não encontrado"
         }, status=404)
-
+    
     # Lê o json enviado
     data, error = parse_json_body(request)
 
@@ -43,94 +43,69 @@ def create_cliente(request, slug_barber):
             "detail": str(error)
         }, status=400)
 
-    # Pegao os dados do cliente
-    nome = data.get("nome")
-    telefone = data.get("telefone").strip()
+    cliente, erro = validar_cliente(data)
 
-    # Valida os campos obrigatórios
-    if not nome or not telefone:
+    if erro:
 
         return JsonResponse({
-            "detail": "nome e telefone sao obrigatorios"
-        }, status=400)
+            "detail": str(erro)
+        })
 
-    # Procura cliente pelo telefone
-    cliente = Cliente.objects.filter(
-        telefone=telefone
-    ).first()
 
-    # Se o cliente não existir, cria um
     if cliente is None:
 
+        telefone = data["telefone"]
+        nome = data["nome"]
+        telefone, error = validar_telefone(telefone)
+
+        if error: 
+            return JsonResponse({
+                "detail": str(error)
+            }, status=400)
+        
+
+        # Cria usuario
         user = User.objects.create(
-            username=telefone
-        )
+                    username=telefone
+                )
 
         user.set_unusable_password()
         user.save()
 
+        # Cria cliente
         cliente = Cliente.objects.create(
             user=user,
             telefone=telefone,
             nome=nome
         )
+    
 
+    else:
+
+        user = cliente.user
+    
     # Cria relação cliente profissional
     cliente_profissional, created = ClienteProfissional.objects.get_or_create(
         cliente=cliente,
         profile=profile
     )
 
-    user = User.objects.get(cliente=cliente)
-
-    tokens = generate_tokens(user)
-
-    print(tokens)
-
-
-    return JsonResponse({
-        "cliente": {
-            "id": cliente.id,
-            "nome": cliente.nome,
-            "telefone": cliente.telefone
-        },
-        "tokens": tokens
-    }, status=201)
-
-@csrf_exempt
-def login_cliente(request): 
-
-    if request.method != "POST":
-
-        return JsonResponse({
-            "error": "método não permitido"
-        }, status=405)
-
-    data, error = parse_json_body(request)
-
-    if error:
-        return JsonResponse({
-            "detail": str(error)
-        })
-
-    cliente, error = validar_cliente(data)
-
-    if error:
-        return JsonResponse({
-            "detail": str(error)
-        })
-
-    user = User.objects.get(cliente=cliente)
-
     tokens = generate_tokens(user)
 
     return JsonResponse({
-        "message": "login concluido",
-        "tokens": tokens
-    })
+    "message": "cliente autenticado",
+    "cliente": {
+        "user": user.id,
+        "nome": cliente.nome,
+        "telefone": cliente.telefone,
+        "profissional": profile.nome_negocio
+    },
+    "tokens": tokens
+}, status=201)
 
+@jwt_required
 @csrf_exempt
-def read_own_profile(request, slug_barber):
+def read_own_profile(request):
 
     if request.method != "GET":
         return JsonResponse({
@@ -144,10 +119,59 @@ def read_own_profile(request, slug_barber):
             "detail": str(error)
         }, status=400)
 
-    cliente, error = validar_cliente(slug_barber, data)
+    cliente, error = validar_cliente(data)
+
+    user = cliente.user
 
     return JsonResponse({
         "cliente": {
-            "nome": cliente
+            "id": user.id,
+            "nome": cliente.nome,
+            "telefone": cliente.telefone,
         }
     })
+
+@jwt_required
+@csrf_exempt
+def read_profile_clients(request):
+
+    if request.method != "GET":
+
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+
+    user = request.user
+
+    try:
+        profile = Profile.objects.get(
+            user=user
+        )
+
+    except Profile.DoesNotExist:
+
+        return JsonResponse({
+            "error": "profissional não encontrado"
+        }, satus=404)
+
+    clientes = Cliente.objects.filter(
+        relacoes_profissionais__profile=profile
+    )
+
+    lista_clientes = []
+
+    for cliente in clientes:
+
+        user = cliente.user
+
+        cliente_iterado = {
+            "id": user.id,
+            "nome": cliente.nome,
+            "telefone": cliente.telefone,
+        }
+
+        lista_clientes.append(cliente_iterado)
+
+    return JsonResponse({
+        "clientes": lista_clientes
+    }, status=200)
