@@ -3,6 +3,8 @@ from django.http import JsonResponse
 
 
 from .models import Agendamento
+from cliente.models import Cliente, ClienteProfissional
+from servicos.models import Servico
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime
 from django.utils  import timezone
@@ -164,6 +166,131 @@ def listar_agendamentos(request):
 @csrf_exempt
 @jwt_required
 def criar_agendamento(request):
+
+    # Retorno esperado
+    #{
+    #   "cliente_id": 12,
+    #   "servicos": [2, 5],
+    #   "horario_inicio": "2026-08-27T14:00:00",
+    #}
+
+    if request.method != "POST":
+        return JsonResponse({
+            "error": "método não permitido"
+        }, status=405)
+
+    user = request.user
+
+    data, erro = parse_json_body(request)
+
+    if erro:
+        return JsonResponse({
+            "detail": str(erro)
+        }, status=400)
+    
+
+    if "cliente_id" not in data:
+        return JsonResponse({
+            "detail": "cliente_id é obrigatório."
+        }, status=400)
+
+    if "servicos" not in data:
+        return JsonResponse({
+            "detail": "servicos é obrigatório."
+        }, status=400)
+
+    if "horario_inicio" not in data:
+        return JsonResponse({
+            "detail": "horario_inicio é obrigatório."
+        }, status=400)
+
+    id_cliente = data["cliente_id"]
+    servicos = data["servicos"]
+    horario_inicio, erro = validar_horario(
+        data["horario_inicio"]
+    )
+
+    if erro: 
+        return JsonResponse({
+            "detail": str(erro)
+        }, status=400)
+
+    cliente = Cliente.objects.filter(
+        id=id_cliente
+    ).first()
+
+    if not cliente:
+
+        return JsonResponse({
+            "detail": "cliente não encontrado"
+        }, status=404)
+    
+
+    relacao = ClienteProfissional.objects.filter(
+        cliente=cliente,
+        profile=user.profile
+    ).first()
+
+    if not relacao:
+
+        return JsonResponse({
+            "detail": "cliente não reconhecido"
+        }, status=404)
+
+    lista_servicos = []
+
+    for servico in servicos:
+
+        servico_iterado = Servico.objects.filter(
+            id=servico,
+            user=user
+        ).first()
+
+        if not servico_iterado:
+
+            return JsonResponse({
+                "detail": f"Servico '{servico}' não encontrado."
+            }, status=400)
+
+        if not servico_iterado.ativo:
+
+            return JsonResponse({
+                "detail": f"O serviço '{servico_iterado.nome}' está inativo."
+            }, status=400)
+
+        lista_servicos.append(servico_iterado)
+
+    duracao_total = sum(
+        servico.duracao
+        for servico in lista_servicos
+    )
+
+    
+
+    
+
+    return JsonResponse({
+        "teste de response": {
+            "id_cliente": id_cliente,
+            "cliente": cliente.nome,
+            "relacao": relacao.cliente.telefone,
+            "relacao": relacao.profile.public_slug,
+            "servicos": lista_servicos
+        }
+    })
+
+
+@csrf_exempt
+@jwt_required
+def funcao_referencial(request):
+
+    # Retorno esperado
+    #{
+    #   "cliente_id": 12,
+    #   "servico_id": [2, 5],
+    #   "horario_inicio": "2026-08-27T14:00:00",
+    #
+    #}
     
     if request.method != "POST":
         return JsonResponse({
