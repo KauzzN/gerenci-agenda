@@ -8,9 +8,9 @@ def atualizar_agendamento_vencido(user):
     
     try:
         agendamentos = Agendamento.objects.filter(
-            user=user,
+            profissional=user,
             status=Agendamento.Status.PENDENTE,
-            horario__lt=limite    
+            horario_fim__lt=limite
         ).update(status=Agendamento.Status.FALTOU)
     
     except Agendamento.DoesNotExist:
