@@ -2,12 +2,13 @@ import json
 from django.http import JsonResponse
 
 
-from .models import Agendamento
+from .models import Agendamento, ItemAgendamento
 from cliente.models import Cliente, ClienteProfissional
 from servicos.models import Servico
 from django.views.decorators.csrf import csrf_exempt
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils  import timezone
+from django.db import transaction
 
 # Import validações, utils e services
 from users.decorators import jwt_required
@@ -185,7 +186,7 @@ def criar_agendamento(request):
 
     if erro:
         return JsonResponse({
-            "detail": str(erro)
+            "detail": erro
         }, status=400)
     
 
@@ -206,13 +207,25 @@ def criar_agendamento(request):
 
     id_cliente = data["cliente_id"]
     servicos = data["servicos"]
+
+    if not isinstance(servicos, list) or not servicos:
+        return JsonResponse({
+            "detail": "servicos deve ser uma lista não vazia."
+        }, status=400)
+
+    if len(servicos) != len(set(servicos)):
+        return JsonResponse({
+            "detail": "Não é permitido repetir serviços."
+        }, status=400)
+
+    
     horario_inicio, erro = validar_horario(
         data["horario_inicio"]
     )
 
     if erro: 
         return JsonResponse({
-            "detail": str(erro)
+            "detail": erro
         }, status=400)
 
     cliente = Cliente.objects.filter(
@@ -224,11 +237,12 @@ def criar_agendamento(request):
         return JsonResponse({
             "detail": "cliente não encontrado"
         }, status=404)
-    
+
+    profile=user.profile
 
     relacao = ClienteProfissional.objects.filter(
         cliente=cliente,
-        profile=user.profile
+        profile=profile
     ).first()
 
     if not relacao:
@@ -265,33 +279,83 @@ def criar_agendamento(request):
         for servico in lista_servicos
     )
 
-    
+    horario_fim = horario_inicio + timedelta(minutes=duracao_total)
 
-    
+    inicio_expediente = profile.horario_inicio
+    fim_expediente = profile.horario_fim
+
+    if horario_inicio.time() < inicio_expediente:
+        return JsonResponse({
+            "detail": "O agendamento começa antes do expediente."
+        }, status=400)
+
+    if horario_fim.time() > fim_expediente:
+        return JsonResponse({
+            "detail": "O agendamento termina após o expediente."
+        }, status=400)
+
+    if profile.inicio_almoco and profile.fim_almoco:
+        if (
+            horario_inicio.time() < profile.fim_almoco
+            and horario_fim.time() > profile.inicio_almoco
+        ):
+            return JsonResponse({
+                "detail": "O horário escolhido conflita com o horário de almoço."
+            }, status=400)
+
+    conflito = Agendamento.objects.filter(
+        profissional=user,
+        horario_inicio__lt=horario_fim,
+        horario_fim__gt=horario_inicio
+    ).exists()
+
+    if conflito:
+        return JsonResponse({
+            "detail": "O horário escolhido já está ocupado."
+        }, status=400)
+
+    with transaction.atomic():
+
+        agendamento = Agendamento.objects.create(
+            profissional=user,
+            cliente=cliente,
+            horario_inicio=horario_inicio,
+            horario_fim=horario_fim,
+        )
+
+        for servico in lista_servicos:
+            ItemAgendamento.objects.create(
+                agendamento=agendamento,
+                servico=servico
+            )
+
 
     return JsonResponse({
-        "teste de response": {
+        "teste_de_response": {
             "id_cliente": id_cliente,
             "cliente": cliente.nome,
-            "relacao": relacao.cliente.telefone,
-            "relacao": relacao.profile.public_slug,
-            "servicos": lista_servicos
+            "telefone": relacao.cliente.telefone,
+            "public_slug": relacao.profile.public_slug,
+            "servicos": [
+                {
+                    "id": servico.id,
+                    "nome": servico.nome,
+                    "duracao": servico.duracao,
+                    "preco": str(servico.preco),
+                }
+                for servico in lista_servicos
+            ],
+            "duracao_total": duracao_total,
+            "horario_inicio": horario_inicio.isoformat(),
+            "horario_fim": horario_fim.isoformat(),
         }
-    })
+    }, status=200)
 
 
 @csrf_exempt
 @jwt_required
 def funcao_referencial(request):
 
-    # Retorno esperado
-    #{
-    #   "cliente_id": 12,
-    #   "servico_id": [2, 5],
-    #   "horario_inicio": "2026-08-27T14:00:00",
-    #
-    #}
-    
     if request.method != "POST":
         return JsonResponse({
             "error": "método não permitido"

@@ -21,9 +21,6 @@ def validar_horario(horario):
     if horario < timezone.now():
         return None, "não pode agendar no passado"
         
-    if horario.minute not in [0, 30]:
-        return None, "horário deve ser de 30 em 30 minutos"
-        
     return horario, None
 
 def validar_data(data_str):
