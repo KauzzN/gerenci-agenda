@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from users.decorators import jwt_required
+from users.decorators import jwt_required, client_required, professional_required
 from django.contrib.auth.models import User
 from .services import validar_cliente, validar_telefone
 from agendamento.utils.agendamento_utils import parse_json_body
@@ -103,7 +103,7 @@ def cliente_entry(request, slug_barber):
     "tokens": tokens
 }, status=201)
 
-@jwt_required
+@client_required
 @csrf_exempt
 def read_own_profile(request):
 
@@ -131,7 +131,7 @@ def read_own_profile(request):
         }
     })
 
-@jwt_required
+@professional_required
 @csrf_exempt
 def read_profile_clients(request):
 
