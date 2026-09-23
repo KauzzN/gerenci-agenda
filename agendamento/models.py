@@ -47,9 +47,10 @@ class Agendamento(models.Model):
     atualizado_em = models.DateTimeField(auto_now=True)
 
     def can_transition_to(self, next_status):
-        if self.status == next_status:
-            return self.status == self.Status.PENDENTE
-        return next_status in self.STATUS_TRANSITIONS.get(self.status, set())
+        return next_status in self.STATUS_TRANSITIONS.get(
+            self.status,
+            set()
+        )
 
     def __str__(self):
         return f"{self.cliente.nome} - {self.horario_inicio}"

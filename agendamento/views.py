@@ -368,7 +368,7 @@ def update_agendamentos(request, id_agend):
     id_cliente = data.get("cliente_id")
     servicos = data.get("servicos")
     horario_inicio = data.get("horario_inicio")
-    status = data.get("status").upper()
+    status = data.get("status")
     
     if (
         not isinstance(id_cliente, int)
@@ -459,6 +459,9 @@ def update_agendamentos(request, id_agend):
         }, status=400)
 
     status_validos = [choice.value for choice in Agendamento.Status]
+
+    status = status.upper()
+    
     if status not in status_validos:
         return JsonResponse({
             "error": "status inválido"

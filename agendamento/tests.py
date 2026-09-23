@@ -154,8 +154,11 @@ class ScheduleRuleTests(SchedulingTestMixin, TestCase):
                 Agendamento.Status.ATENDIDO,
                 Agendamento.Status.CANCELADO,
                 Agendamento.Status.FALTOU,
+                Agendamento.Status.PENDENTE,
             },
-            Agendamento.Status.CANCELADO: {Agendamento.Status.CANCELADO},
+            Agendamento.Status.CANCELADO: {
+                Agendamento.Status.CANCELADO
+            },
             Agendamento.Status.ATENDIDO: {
                 Agendamento.Status.ATENDIDO,
                 Agendamento.Status.CANCELADO,
