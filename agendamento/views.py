@@ -5,20 +5,42 @@ from django.http import JsonResponse
 from .models import Agendamento, ItemAgendamento
 from cliente.models import Cliente, ClienteProfissional
 from servicos.models import Servico
-from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, timedelta
 from django.utils  import timezone
 from django.db import transaction
 
 # Import validações, utils e services
-from users.decorators import jwt_required, professional_required
+from users.decorators import professional_required
 from .validators import validar_horario, validar_data_consulta
 from .utils.agendamento_utils import parse_json_body
 from .services import atualizar_agendamento_vencido
+from .booking_rules import (
+    has_schedule_conflict,
+    load_active_services,
+    within_business_hours,
+)
+
+def _serialize_agendamento(agendamento):
+    return {
+        "id": agendamento.id,
+        "cliente_id": agendamento.cliente_id,
+        "cliente": agendamento.cliente.nome,
+        "servicos": [
+            {
+                "id": item.servico_id,
+                "nome": item.servico.nome,
+                "duracao": item.servico.duracao,
+                "preco": str(item.servico.preco),
+            }
+            for item in agendamento.itens.select_related("servico").all()
+        ],
+        "horario_inicio": agendamento.horario_inicio.isoformat(),
+        "horario_fim": agendamento.horario_fim.isoformat(),
+        "status": agendamento.status,
+    }
 
 # Create your views here.
 
-@csrf_exempt
 @professional_required
 def historico_view(request):
     if request.method != "GET":
@@ -37,22 +59,13 @@ def historico_view(request):
     lista_agendamentos = []
     
     for agendamento in agendamentos:
-        novo_agendamento = {
-            "id": agendamento.id,
-            "cliente": agendamento.cliente.nome,
-            "horario_inicio": agendamento.horario_inicio,
-            "horario_fim": agendamento.horario_fim,
-            "status": agendamento.status
-        }
-        
-        lista_agendamentos.append(novo_agendamento)
+        lista_agendamentos.append(_serialize_agendamento(agendamento))
         
     return JsonResponse({
         "historico": lista_agendamentos
     })
     
 
-@csrf_exempt
 @professional_required
 def dashboard_view(request):
     if request.method != "GET":
@@ -97,13 +110,8 @@ def dashboard_view(request):
     ).order_by("horario_inicio").first()
     
     if proximo:
-        proximo_json = {
-            "cliente": proximo.cliente.nome,
-            "horario_inicio": proximo.horario_inicio,
-            "horario_fim": proximo.horario_fim,
-            "status": proximo.status,
-            "telefone": proximo.cliente.telefone
-        }
+        proximo_json = _serialize_agendamento(proximo)
+        proximo_json["telefone"] = proximo.cliente.telefone
     
     return JsonResponse({
         "total": total,
@@ -114,7 +122,6 @@ def dashboard_view(request):
         "proximo": proximo_json
     })
 
-@csrf_exempt
 @professional_required
 def listar_agendamentos(request):
     if request.method != "GET":
@@ -136,7 +143,7 @@ def listar_agendamentos(request):
         if error:
             return JsonResponse({
                 "error": error
-        }, status=404)
+        }, status=400)
     
     atualizar_agendamento_vencido(user)
     
@@ -153,21 +160,12 @@ def listar_agendamentos(request):
     agenda = []
     
     for agendamento in agendamentos:
-        novo_horario = {
-            "id": agendamento.id,
-            "cliente": agendamento.cliente.nome,
-            "horario_inicio": agendamento.horario_inicio,
-            "horario_fim": agendamento.horario_fim,
-            "status": agendamento.status
-        }
-        
-        agenda.append(novo_horario)
+        agenda.append(_serialize_agendamento(agendamento))
         
     return JsonResponse({
         "agendamentos": agenda
     })
 
-@csrf_exempt
 @professional_required
 def criar_agendamento(request):
 
@@ -188,28 +186,26 @@ def criar_agendamento(request):
     data, erro = parse_json_body(request)
 
     if erro:
-        return JsonResponse({
-            "detail": erro
-        }, status=400)
+        return erro
 
     if not isinstance(data, dict):
         return JsonResponse({
-            "detail": "json inválido"
+            "error": "json inválido"
         }, status=400)
 
     if "cliente_id" not in data:
         return JsonResponse({
-            "detail": "cliente_id é obrigatório."
+            "error": "cliente_id é obrigatório."
         }, status=400)
 
     if "servicos" not in data:
         return JsonResponse({
-            "detail": "servicos é obrigatório."
+            "error": "servicos é obrigatório."
         }, status=400)
 
     if "horario_inicio" not in data:
         return JsonResponse({
-            "detail": "horario_inicio é obrigatório."
+            "error": "horario_inicio é obrigatório."
         }, status=400)
 
     id_cliente = data["cliente_id"]
@@ -221,12 +217,12 @@ def criar_agendamento(request):
         or id_cliente <= 0
     ):
         return JsonResponse({
-            "detail": "cliente_id inválido."
+            "error": "cliente_id inválido."
         }, status=400)
 
     if not isinstance(servicos, list) or not servicos:
         return JsonResponse({
-            "detail": "servicos deve ser uma lista não vazia."
+            "error": "servicos deve ser uma lista não vazia."
         }, status=400)
 
     if any(
@@ -236,12 +232,12 @@ def criar_agendamento(request):
         for servico in servicos
     ):
         return JsonResponse({
-            "detail": "servicos deve conter apenas IDs válidos."
+            "error": "servicos deve conter apenas IDs válidos."
         }, status=400)
 
     if len(servicos) != len(set(servicos)):
         return JsonResponse({
-            "detail": "Não é permitido repetir serviços."
+            "error": "Não é permitido repetir serviços."
         }, status=400)
 
     
@@ -251,7 +247,7 @@ def criar_agendamento(request):
 
     if erro: 
         return JsonResponse({
-            "detail": erro
+            "error": erro
         }, status=400)
 
     cliente = Cliente.objects.filter(
@@ -260,7 +256,7 @@ def criar_agendamento(request):
 
     if not cliente:
         return JsonResponse({
-            "detail": "cliente não encontrado"
+            "error": "cliente não encontrado"
         }, status=404)
 
     profile=user.profile
@@ -272,36 +268,19 @@ def criar_agendamento(request):
 
     if not relacao:
         return JsonResponse({
-            "detail": "cliente não reconhecido"
+            "error": "cliente não reconhecido"
         }, status=404)
 
     if not relacao.ativo:
         return JsonResponse({
-            "detail": "cliente não está ativo para este profissional"
+            "error": "cliente não está ativo para este profissional"
         }, status=403)
 
-    lista_servicos = []
-
-    for servico in servicos:
-
-        servico_iterado = Servico.objects.filter(
-            id=servico,
-            user=user
-        ).first()
-
-        if not servico_iterado:
-
-            return JsonResponse({
-                "detail": f"Servico '{servico}' não encontrado."
-            }, status=400)
-
-        if not servico_iterado.ativo:
-
-            return JsonResponse({
-                "detail": f"O serviço '{servico_iterado.nome}' está inativo."
-            }, status=400)
-
-        lista_servicos.append(servico_iterado)
+    lista_servicos = load_active_services(user, servicos)
+    if lista_servicos is None:
+        return JsonResponse({
+            "error": "serviço não encontrado ou está inativo"
+        }, status=400)
 
     duracao_total = sum(
         servico.duracao
@@ -310,7 +289,7 @@ def criar_agendamento(request):
 
     if duracao_total <= 0:
         return JsonResponse({
-            "detail": "A duração total dos serviços deve ser maior que zero."
+            "error": "A duração total dos serviços deve ser maior que zero."
         }, status=400)
 
     horario_fim = horario_inicio + timedelta(minutes=duracao_total)
@@ -320,45 +299,19 @@ def criar_agendamento(request):
 
     if inicio_expediente is None or fim_expediente is None:
         return JsonResponse({
-            "detail": "expediente não configurado"
+            "error": "expediente não configurado"
         }, status=400)
 
-    if horario_inicio.time() < inicio_expediente:
+    if not within_business_hours(profile, horario_inicio, horario_fim):
         return JsonResponse({
-            "detail": "O agendamento começa antes do expediente."
-        }, status=400)
-
-    if (
-        horario_fim.date() != horario_inicio.date()
-        or horario_fim.time() > fim_expediente
-    ):
-        return JsonResponse({
-            "detail": "O agendamento termina após o expediente."
-        }, status=400)
-
-    if profile.inicio_almoco and profile.fim_almoco:
-        if (
-            horario_inicio.time() < profile.fim_almoco
-            and horario_fim.time() > profile.inicio_almoco
-        ):
-            return JsonResponse({
-                "detail": "O horário escolhido conflita com o horário de almoço."
-            }, status=400)
-
-    conflito = Agendamento.objects.filter(
-        profissional=user,
-        horario_inicio__lt=horario_fim,
-        horario_fim__gt=horario_inicio
-    ).exclude(
-        status=Agendamento.Status.CANCELADO
-    ).exists()
-
-    if conflito:
-        return JsonResponse({
-            "detail": "O horário escolhido já está ocupado."
+            "error": "horário fora do expediente ou em conflito com o almoço"
         }, status=400)
 
     with transaction.atomic():
+        if has_schedule_conflict(user, horario_inicio, horario_fim):
+            return JsonResponse({
+                "error": "O horário escolhido já está ocupado."
+            }, status=409)
 
         agendamento = Agendamento.objects.create(
             profissional=user,
@@ -375,28 +328,11 @@ def criar_agendamento(request):
 
 
     return JsonResponse({
-        "teste_de_response": {
-            "id_cliente": id_cliente,
-            "cliente": cliente.nome,
-            "telefone": relacao.cliente.telefone,
-            "public_slug": relacao.profile.public_slug,
-            "servicos": [
-                {
-                    "id": servico.id,
-                    "nome": servico.nome,
-                    "duracao": servico.duracao,
-                    "preco": str(servico.preco),
-                }
-                for servico in lista_servicos
-            ],
-            "duracao_total": duracao_total,
-            "horario_inicio": horario_inicio.isoformat(),
-            "horario_fim": horario_fim.isoformat(),
-        }
-    }, status=200)
+        "message": "Agendamento criado com sucesso",
+        "agendamento": _serialize_agendamento(agendamento),
+    }, status=201)
 
 
-@csrf_exempt
 @professional_required
 def update_agendamentos(request, id_agend):
     if request.method != "PUT":
@@ -432,7 +368,7 @@ def update_agendamentos(request, id_agend):
     id_cliente = data.get("cliente_id")
     servicos = data.get("servicos")
     horario_inicio = data.get("horario_inicio")
-    status = data.get("status")
+    status = data.get("status").upper()
     
     if (
         not isinstance(id_cliente, int)
@@ -486,28 +422,19 @@ def update_agendamentos(request, id_agend):
 
     if not relacao:
         return JsonResponse({
-            "detail": "cliente não reconhecido"
+            "error": "cliente não reconhecido"
         }, status=404)
 
     if not relacao.ativo:
         return JsonResponse({
-            "detail": "cliente não está ativo para este profissional"
+            "error": "cliente não está ativo para este profissional"
         }, status=403)
 
-    lista_servicos = []
-    for servico in servicos:
-        servico_iterado = Servico.objects.filter(
-            id=servico,
-            user=user,
-            ativo=True
-        ).first()
-
-        if not servico_iterado:
-            return JsonResponse({
-                "error": f"Servico '{servico}' não encontrado ou está inativo."
-            }, status=400)
-
-        lista_servicos.append(servico_iterado)
+    lista_servicos = load_active_services(user, servicos)
+    if lista_servicos is None:
+        return JsonResponse({
+            "error": "serviço não encontrado ou está inativo"
+        }, status=400)
 
     duracao_total = sum(servico.duracao for servico in lista_servicos)
 
@@ -526,27 +453,10 @@ def update_agendamentos(request, id_agend):
             "error": "expediente não configurado"
         }, status=400)
 
-    if horario_inicio.time() < profile.horario_inicio:
+    if not within_business_hours(profile, horario_inicio, horario_fim):
         return JsonResponse({
-            "error": "O agendamento começa antes do expediente."
+            "error": "horário fora do expediente ou em conflito com o almoço"
         }, status=400)
-
-    if (
-        horario_fim.date() != horario_inicio.date()
-        or horario_fim.time() > profile.horario_fim
-    ):
-        return JsonResponse({
-            "error": "O agendamento termina após o expediente."
-        }, status=400)
-
-    if profile.inicio_almoco and profile.fim_almoco:
-        if (
-            horario_inicio.time() < profile.fim_almoco
-            and horario_fim.time() > profile.inicio_almoco
-        ):
-            return JsonResponse({
-                "error": "O horário escolhido conflita com o horário de almoço."
-            }, status=400)
 
     status_validos = [choice.value for choice in Agendamento.Status]
     if status not in status_validos:
@@ -554,27 +464,26 @@ def update_agendamentos(request, id_agend):
             "error": "status inválido"
         }, status=400)
 
-    conflito = Agendamento.objects.filter(
-        profissional=user,
-        horario_inicio__lt=horario_fim,
-        horario_fim__gt=horario_inicio
-    ).exclude(
-        id=agendamento.id
-    ).exclude(
-        status=Agendamento.Status.CANCELADO
-    ).exists()
-
-    if conflito:
+    if not agendamento.can_transition_to(status):
         return JsonResponse({
-            "error": "já existe um agendamento nesse horário"
+            "error": "transição de status inválida para esse agendamento"
         }, status=400)
-        
-    agendamento.cliente = cliente
-    agendamento.horario_inicio = horario_inicio
-    agendamento.horario_fim = horario_fim
-    agendamento.status = status
-    
+
     with transaction.atomic():
+        if has_schedule_conflict(
+            user,
+            horario_inicio,
+            horario_fim,
+            exclude_id=agendamento.id,
+        ):
+            return JsonResponse({
+                "error": "já existe um agendamento nesse horário"
+            }, status=400)
+
+        agendamento.cliente = cliente
+        agendamento.horario_inicio = horario_inicio
+        agendamento.horario_fim = horario_fim
+        agendamento.status = status
         agendamento.save()
         agendamento.itens.all().delete()
         ItemAgendamento.objects.bulk_create([
@@ -583,11 +492,11 @@ def update_agendamentos(request, id_agend):
         ])
     
     return JsonResponse({
-        "message": "agendamento atualizado com sucesso"
+        "message": "agendamento atualizado com sucesso",
+        "agendamento": _serialize_agendamento(agendamento),
     }, status=200)
     
     
-@csrf_exempt
 @professional_required
 def delete_agendamento(request, id_agend):
 
@@ -623,7 +532,6 @@ def delete_agendamento(request, id_agend):
     }, status=200)
     
     
-@csrf_exempt
 @professional_required
 def atualizar_status(request, id_agend):
     
@@ -644,9 +552,7 @@ def atualizar_status(request, id_agend):
     data, error = parse_json_body(request)
     
     if error:
-        return JsonResponse({
-            "error": error
-        }, status=400)
+        return error
     
     
     status_inserido = data.get("status")
@@ -675,27 +581,7 @@ def atualizar_status(request, id_agend):
             "error": "agendamento não encontrado"
         }, status=404)
 
-    transicoes_validas = {
-        Agendamento.Status.PENDENTE: {
-            Agendamento.Status.PENDENTE,
-            Agendamento.Status.CANCELADO,
-            Agendamento.Status.ATENDIDO,
-            Agendamento.Status.FALTOU,
-        },
-        Agendamento.Status.ATENDIDO: {
-            Agendamento.Status.ATENDIDO,
-            Agendamento.Status.CANCELADO,
-        },
-        Agendamento.Status.FALTOU: {
-            Agendamento.Status.FALTOU,
-            Agendamento.Status.CANCELADO,
-        },
-        Agendamento.Status.CANCELADO: {
-            Agendamento.Status.CANCELADO,
-        },
-    }
-
-    if status_inserido not in transicoes_validas.get(agendamento.status, set()):
+    if not agendamento.can_transition_to(status_inserido):
         return JsonResponse({
             "error": "transição de status inválida para esse agendamento"
         }, status=400)

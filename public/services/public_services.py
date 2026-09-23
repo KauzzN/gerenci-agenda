@@ -4,6 +4,7 @@ from public.models import Profile
 from django.utils.text import slugify
 from django.core.validators import MinLengthValidator, RegexValidator
 from agendamento.validators import validar_horario_expediente
+import re
 
 def gerar_horarios_do_dia():
     
@@ -37,7 +38,17 @@ def atualizar_horario(profile, data):
     fim_expediente = data.get("horario_fim")
     inicio_almoco = data.get("inicio_almoco")
     fim_almoco = data.get("fim_almoco")
-    
+
+    if all(
+        value is None
+        for value in (
+            inicio_expediente,
+            fim_expediente,
+            inicio_almoco,
+            fim_almoco,
+        )
+    ):
+        return False, None
 
     horario_inicio, horario_fim, comeco_almoco, final_almoco, erro = validar_horario_expediente(
         inicio_expediente,
@@ -83,13 +94,16 @@ def atualizar_profile(profile, data):
     
     updated = False
     
-    if "public_slug" in data and data["public_slug"].strip():
-        
-        slug = data["public_slug"].strip().lower()
-        
-        novo_slug = slugify(slug)
-        
-        
+    if "public_slug" in data:
+        slug = data["public_slug"]
+
+        if not isinstance(slug, str):
+            return None, "slug inválido"
+
+        novo_slug = slug.strip().lower()
+        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", novo_slug):
+            return None, "slug inválido"
+
         conflito = Profile.objects.filter(
             public_slug=novo_slug
         ).exclude(
@@ -99,7 +113,7 @@ def atualizar_profile(profile, data):
         if conflito:
             return None, "esse slug já existe"
         
-        if novo_slug != profile.public_slug:    
+        if novo_slug != profile.public_slug:
             profile.public_slug = novo_slug
             updated = True
         

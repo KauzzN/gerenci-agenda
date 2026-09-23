@@ -12,6 +12,13 @@ class Agendamento(models.Model):
         CANCELADO = "CANCELADO", "Cancelado"
         FALTOU = "FALTOU", "Faltou"
 
+    STATUS_TRANSITIONS = {
+        Status.PENDENTE: {Status.CANCELADO, Status.ATENDIDO, Status.FALTOU, Status.PENDENTE},
+        Status.ATENDIDO: {Status.ATENDIDO, Status.CANCELADO},
+        Status.FALTOU: {Status.FALTOU, Status.CANCELADO},
+        Status.CANCELADO: {Status.CANCELADO},
+    }
+
     cliente = models.ForeignKey(
         Cliente,
         on_delete=models.PROTECT,
@@ -38,6 +45,11 @@ class Agendamento(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True)
 
     atualizado_em = models.DateTimeField(auto_now=True)
+
+    def can_transition_to(self, next_status):
+        if self.status == next_status:
+            return self.status == self.Status.PENDENTE
+        return next_status in self.STATUS_TRANSITIONS.get(self.status, set())
 
     def __str__(self):
         return f"{self.cliente.nome} - {self.horario_inicio}"

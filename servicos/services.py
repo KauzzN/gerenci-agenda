@@ -5,24 +5,31 @@ def atualizar_servico(request, servico, data):
 
     updated = False
 
-    if "nome" in data and data["nome"].strip():
+    if "nome" in data and data["nome"] not in (None, ""):
+        if not isinstance(data["nome"], str):
+            return None, "nome deve ser texto"
 
         nome = data["nome"].strip()
+        if not nome:
+            return None, "nome não pode ser vazio"
 
         if nome != servico.nome:
 
             servico.nome = nome
             updated = True
 
-    if "preco" in data and data["preco"].strip():
+    if "preco" in data and data["preco"] not in (None, ""):
 
-        preco = data["preco"].strip()
+        preco = data["preco"]
 
         try:
-            preco = Decimal(preco)
+            preco = Decimal(str(preco))
 
-        except InvalidOperation:
+        except (InvalidOperation, TypeError, ValueError):
             return None, "preço deve ser um número válido"
+
+        if preco < 0:
+            return None, "preço não pode ser negativo"
 
         if preco != servico.preco:
 
@@ -30,22 +37,36 @@ def atualizar_servico(request, servico, data):
             updated = True
 
 
-    if "duracao" in data and data["duracao"].strip():
+    if "duracao" in data and data["duracao"] not in (None, ""):
 
-        duracao = data["duracao"].strip()
+        duracao = data["duracao"]
 
-        if not duracao.isdigit():
+        if isinstance(duracao, bool):
             return None, "duração precisa ser número"
 
-        duracao = int(duracao)
+        if isinstance(duracao, str):
+            duracao = duracao.strip()
+
+        if isinstance(duracao, str) and not duracao.isdigit():
+            return None, "duração precisa ser número"
+
+        try:
+            duracao = int(duracao)
+        except (TypeError, ValueError):
+            return None, "duração precisa ser número"
+
+        if duracao <= 0:
+            return None, "duração deve ser maior que zero"
 
         if duracao != servico.duracao:
              
             servico.duracao = duracao
             updated = True
 
-    if "descricao" in data and data["descricao"].strip():
-    
+    if "descricao" in data and data["descricao"] not in (None, ""):
+        if not isinstance(data["descricao"], str):
+            return None, "descrição deve ser texto"
+
         descricao = data["descricao"].strip()
 
         if len(descricao) > 200:
@@ -56,11 +77,17 @@ def atualizar_servico(request, servico, data):
             servico.descricao = descricao
             updated = True
 
-    if "cor" in data and data["cor"].strip():
+    if "cor" in data and data["cor"] not in (None, ""):
+        if not isinstance(data["cor"], str):
+            return None, "cor inválida"
 
         cor = data["cor"].strip()
 
-        if not cor.startswith("#"):
+        if (
+            len(cor) not in (4, 7)
+            or not cor.startswith("#")
+            or any(character not in "0123456789abcdefABCDEF" for character in cor[1:])
+        ):
             return None, "cor inválida"
 
         if cor != servico.cor:
@@ -68,10 +95,10 @@ def atualizar_servico(request, servico, data):
             servico.cor = cor
             updated = True
 
-    if "ativo" in data and data["ativo"]:
-
-
+    if "ativo" in data:
         ativo = data["ativo"]
+        if not isinstance(ativo, bool):
+            return None, "ativo deve ser booleano"
 
         if ativo != servico.ativo:
 

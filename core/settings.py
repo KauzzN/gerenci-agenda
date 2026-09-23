@@ -11,9 +11,32 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import secrets
 import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
+
+
+def _env_list(name, default=""):
+    value = os.getenv(name, default)
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _required_env_list(name):
+    values = _env_list(name)
+    if not values:
+        raise ImproperlyConfigured(
+            f"{name} must be configured for beta and production environments."
+        )
+    return values
+
+
+def _env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 load_dotenv()
@@ -25,19 +48,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").strip().lower()
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+if not SECRET_KEY:
+    if ENVIRONMENT in {"beta", "production"}:
+        raise ImproperlyConfigured(
+            "SECRET_KEY must be configured for beta and production environments."
+        )
+    SECRET_KEY = secrets.token_urlsafe(50)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG') == 'True';
+DEBUG = _env_bool("DEBUG", ENVIRONMENT == "development")
 
-ALLOWED_HOSTS = os.getenv(
-    "ALLOWED_HOSTS",
-    ""
-).split(",")
+if ENVIRONMENT in {"beta", "production"} and DEBUG:
+    raise ImproperlyConfigured(
+        "DEBUG must be false for beta and production environments."
+    )
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://*.ngrok-free.dev",
-]
+if ENVIRONMENT in {"beta", "production"}:
+    ALLOWED_HOSTS = _required_env_list("ALLOWED_HOSTS")
+else:
+    ALLOWED_HOSTS = _env_list(
+        "ALLOWED_HOSTS",
+        "localhost,127.0.0.1"
+    )
+
+if ENVIRONMENT in {"beta", "production"}:
+    CSRF_TRUSTED_ORIGINS = _env_list("CSRF_TRUSTED_ORIGINS")
+else:
+    CSRF_TRUSTED_ORIGINS = _env_list(
+        "CSRF_TRUSTED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000"
+    )
+
+if any("*" in origin for origin in CSRF_TRUSTED_ORIGINS):
+    raise ImproperlyConfigured(
+        "CSRF_TRUSTED_ORIGINS must not contain wildcard origins."
+    )
 
 # Application definition
 
@@ -61,6 +109,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'core.middleware.ApiMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -88,13 +137,60 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "False") == "True"
+if ENVIRONMENT in {"beta", "production"}:
+    CORS_ALLOWED_ORIGINS = _required_env_list("CORS_ALLOWED_ORIGINS")
+else:
+    CORS_ALLOWED_ORIGINS = _env_list(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000"
+    )
+CORS_ALLOW_ALL_ORIGINS = _env_bool("CORS_ALLOW_ALL_ORIGINS", False)
+CORS_ALLOW_CREDENTIALS = False
+
+if ENVIRONMENT in {"beta", "production"} and CORS_ALLOW_ALL_ORIGINS:
+    raise ImproperlyConfigured(
+        "CORS_ALLOW_ALL_ORIGINS must be false for beta and production environments."
+    )
+
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SAMESITE = "Lax"
+
+SECURE_SSL_REDIRECT = _env_bool(
+    "SECURE_SSL_REDIRECT",
+    ENVIRONMENT in {"beta", "production"},
+)
+SECURE_HSTS_SECONDS = int(os.getenv(
+    "SECURE_HSTS_SECONDS",
+    "0" if ENVIRONMENT == "development" else "31536000",
+))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    ENVIRONMENT in {"beta", "production"},
+)
+SECURE_HSTS_PRELOAD = _env_bool(
+    "SECURE_HSTS_PRELOAD",
+    ENVIRONMENT in {"beta", "production"},
+)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
+
+if _env_bool("SECURE_PROXY_SSL_HEADER_ENABLED", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+if ENVIRONMENT == "production" and not DATABASE_URL:
+    raise ImproperlyConfigured(
+        "DATABASE_URL must be configured for the production PostgreSQL database."
+    )
 
 if DATABASE_URL:
     DATABASES = {

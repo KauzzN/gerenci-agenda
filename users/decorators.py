@@ -8,8 +8,8 @@ from users.models import User
 from public.models import Profile
 from cliente.models import Cliente
 
-def authenticate_request(request):
 
+def authenticate_request(request):
     auth_header = request.headers.get("Authorization")
 
     if not auth_header:
@@ -44,7 +44,6 @@ def authenticate_request(request):
             }, status=401)
 
         user = User.objects.get(id=user_id)
-
         return user, None
 
     except jwt.ExpiredSignatureError:
@@ -57,70 +56,60 @@ def authenticate_request(request):
             "error": "token inválido"
         }, status=401)
 
+
 def jwt_required(view_func):
-    
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-
         user, error = authenticate_request(request)
 
         if error:
             return error
 
         request.user = user
-
         return view_func(request, *args, **kwargs)
-    
+
     return wrapper
 
-def professional_required(view_func):
 
+def professional_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-
         user, error = authenticate_request(request)
 
         if error:
             return error
 
-        profile = Profile.objects.filter(
-            user=user
-        ).first()
-
-        if not profile:
+        try:
+            profile = user.profile
+        except Profile.DoesNotExist:
             return JsonResponse({
                 "error": "acesso permitido apenas para profissionais"
             }, status=403)
 
         request.user = user
         request.profile = profile
-
         return view_func(request, *args, **kwargs)
 
     return wrapper
 
-def client_required(view_func):
 
+def client_required(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-
         user, error = authenticate_request(request)
 
         if error:
             return error
 
-        cliente = Cliente.objects.filter(
-            user=user
-        ).first()
-
-        if not cliente:
+        try:
+            cliente = user.cliente
+        except Cliente.DoesNotExist:
             return JsonResponse({
                 "error": "acesso permitido apenas para clientes"
             }, status=403)
 
         request.user = user
         request.cliente = cliente
-
         return view_func(request, *args, **kwargs)
 
     return wrapper
