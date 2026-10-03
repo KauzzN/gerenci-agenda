@@ -53,7 +53,11 @@ def horarios_disponiveis(request, slug_barber):
             "error": "serviço não encontrado ou está inativo"
         }, status=400)
 
-    if profile.horario_inicio is None or profile.horario_fim is None:
+    if (
+        profile.horario_inicio is None
+        or profile.horario_fim is None
+        or not profile.dias_funcionando
+    ):
         return JsonResponse({
             "error": "expediente não configurado"
         }, status=400)

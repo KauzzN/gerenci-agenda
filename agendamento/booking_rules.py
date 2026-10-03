@@ -54,7 +54,7 @@ def overlaps_lunch(profile, inicio, fim):
 def is_working_day(profile, appointment_date):
     configured_days = profile.dias_funcionando
     if not configured_days:
-        return True
+        return False
 
     weekday = appointment_date.weekday()
     names = (

@@ -33,15 +33,7 @@ def cliente_entry(request, slug_barber):
         }, status=400)
 
     if cliente is None:
-        telefone = data.get("telefone")
-        nome = data.get("nome")
-
-        if not nome:
-            return JsonResponse({
-                "error": "nome é obrigatório"
-            }, status=400)
-
-        telefone, error = validar_telefone(telefone)
+        telefone, error = validar_telefone(data["telefone"])
         if error:
             return JsonResponse({
                 "error": str(error)
@@ -54,7 +46,7 @@ def cliente_entry(request, slug_barber):
         cliente = Cliente.objects.create(
             user=user,
             telefone=telefone,
-            nome=nome
+            nome=data["nome"].strip()
         )
     else:
         user = cliente.user
