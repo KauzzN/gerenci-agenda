@@ -93,6 +93,31 @@ def atualizar_horario(profile, data):
 def atualizar_profile(profile, data):
     
     updated = False
+
+    if "dias_funcionando" in data:
+        dias_funcionando = data["dias_funcionando"]
+        dias_validos = {
+            "domingo",
+            "segunda",
+            "terca",
+            "quarta",
+            "quinta",
+            "sexta",
+            "sabado",
+        }
+        if (
+            not isinstance(dias_funcionando, list)
+            or any(
+                not isinstance(dia, str) or dia not in dias_validos
+                for dia in dias_funcionando
+            )
+            or len(dias_funcionando) != len(set(dias_funcionando))
+        ):
+            return None, "dias_funcionando inválidos"
+
+        if dias_funcionando != profile.dias_funcionando:
+            profile.dias_funcionando = dias_funcionando
+            updated = True
     
     if "public_slug" in data:
         slug = data["public_slug"]

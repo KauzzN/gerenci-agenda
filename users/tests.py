@@ -47,3 +47,43 @@ class UpdateProfileTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.profile.refresh_from_db()
         self.assertIsNone(self.profile.public_slug)
+
+    def test_persists_configured_working_days(self):
+        response = self.update({
+            "dias_funcionando": ["segunda", "terca", "domingo"]
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.dias_funcionando,
+            ["segunda", "terca", "domingo"],
+        )
+        self.assertEqual(
+            response.json()["profile"]["dias_funcionando"],
+            ["segunda", "terca", "domingo"],
+        )
+
+    def test_persists_empty_working_days(self):
+        self.profile.dias_funcionando = ["segunda"]
+        self.profile.save(update_fields=["dias_funcionando"])
+
+        response = self.update({"dias_funcionando": []})
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.dias_funcionando, [])
+
+    def test_rejects_invalid_working_days(self):
+        response = self.update({"dias_funcionando": ["segunda", "invalido"]})
+
+        self.assertEqual(response.status_code, 400)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.dias_funcionando, [])
+
+    def test_rejects_non_list_working_days(self):
+        response = self.update({"dias_funcionando": "segunda"})
+
+        self.assertEqual(response.status_code, 400)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.dias_funcionando, [])

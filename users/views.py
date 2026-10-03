@@ -163,6 +163,7 @@ def update_profile(request):
             "fim expediente": profile.horario_fim,
             "inicio almo?o": profile.inicio_almoco,
             "fim almo?o": profile.fim_almoco,
+            "dias_funcionando": profile.dias_funcionando,
         }
     })
 
@@ -216,4 +217,5 @@ def meu_profile(request):
         "horario_fim": profile.horario_fim.isoformat() if profile.horario_fim else None,
         "inicio_almoco": profile.inicio_almoco.isoformat() if profile.inicio_almoco else None,
         "fim_almoco": profile.fim_almoco.isoformat() if profile.fim_almoco else None,
+        "dias_funcionando": profile.dias_funcionando,
     })
