@@ -87,3 +87,19 @@ class UpdateProfileTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.dias_funcionando, [])
+
+    def test_profile_endpoint_returns_public_business_fields(self):
+        self.profile.endereco = "Rua das Flores, 10"
+        self.profile.instagram = "@barbearia"
+        self.profile.descricao = "Cortes e cuidados."
+        self.profile.save(update_fields=["endereco", "instagram", "descricao"])
+
+        response = self.client.get(
+            "/api/usr/me/profile",
+            **self.headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["endereco"], "Rua das Flores, 10")
+        self.assertEqual(response.json()["instagram"], "@barbearia")
+        self.assertEqual(response.json()["descricao"], "Cortes e cuidados.")

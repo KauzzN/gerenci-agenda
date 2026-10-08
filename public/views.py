@@ -240,6 +240,9 @@ def read_profile(request, slug_barber):
         "nome": profile.nome_negocio,
         "barbearia": profile.public_slug,
         "telefone": profile.telefone,
+        "endereco": profile.endereco,
+        "instagram": profile.instagram,
+        "descricao": profile.descricao,
         "servicos": [
             {
                 "id": service.id,

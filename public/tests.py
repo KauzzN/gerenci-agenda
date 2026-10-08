@@ -22,6 +22,9 @@ class PublicBookingTests(TestCase):
             user=self.professional,
             nome_negocio="Barbearia Teste",
             public_slug="barbearia-teste",
+            endereco="Rua das Flores, 10",
+            instagram="@barbearia",
+            descricao="Cortes e cuidados.",
             horario_inicio=time(8),
             horario_fim=time(18),
             inicio_almoco=time(12),
@@ -79,6 +82,9 @@ class PublicBookingTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["barbearia"], "barbearia-teste")
+        self.assertEqual(response.json()["endereco"], "Rua das Flores, 10")
+        self.assertEqual(response.json()["instagram"], "@barbearia")
+        self.assertEqual(response.json()["descricao"], "Cortes e cuidados.")
         self.assertEqual(response.json()["servicos"][0]["id"], self.service.id)
 
     def test_unknown_public_slug_returns_not_found(self):
