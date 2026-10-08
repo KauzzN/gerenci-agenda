@@ -178,18 +178,22 @@ def atualizar_profile(profile, data):
             profile.telefone = telefone
             updated = True
 
-    if "endereco" in data and data["endereco"].strip():
+    if "endereco" in data:
+        if not isinstance(data["endereco"], str):
+            return None, "endereço inválido"
 
         endereco = data["endereco"].strip()
 
-        if len(endereco) < 5:
+        if endereco and len(endereco) < 5:
             return None, "endereço inválido"
 
         if endereco != profile.endereco:
             profile.endereco = endereco
             updated = True
 
-    if "instagram" in data and data["instagram"].strip():
+    if "instagram" in data:
+        if not isinstance(data["instagram"], str):
+            return None, "instagram inválido"
 
         instagram = data["instagram"].strip()
 
@@ -197,7 +201,9 @@ def atualizar_profile(profile, data):
             profile.instagram = instagram
             updated = True
 
-    if "descricao" in data and data["descricao"].strip():
+    if "descricao" in data:
+        if not isinstance(data["descricao"], str):
+            return None, "descrição inválida"
 
         descricao = data["descricao"].strip()
 

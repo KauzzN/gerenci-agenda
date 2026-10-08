@@ -103,3 +103,21 @@ class UpdateProfileTests(TestCase):
         self.assertEqual(response.json()["endereco"], "Rua das Flores, 10")
         self.assertEqual(response.json()["instagram"], "@barbearia")
         self.assertEqual(response.json()["descricao"], "Cortes e cuidados.")
+
+    def test_clears_optional_profile_fields(self):
+        self.profile.endereco = "Rua das Flores, 10"
+        self.profile.instagram = "@barbearia"
+        self.profile.descricao = "Cortes e cuidados."
+        self.profile.save(update_fields=["endereco", "instagram", "descricao"])
+
+        response = self.update({
+            "endereco": "",
+            "instagram": "",
+            "descricao": "",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.endereco, "")
+        self.assertEqual(self.profile.instagram, "")
+        self.assertEqual(self.profile.descricao, "")
