@@ -187,9 +187,9 @@ if _env_bool("SECURE_PROXY_SSL_HEADER_ENABLED", False):
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if ENVIRONMENT == "production" and not DATABASE_URL:
+if ENVIRONMENT in {"beta", "production"} and not DATABASE_URL:
     raise ImproperlyConfigured(
-        "DATABASE_URL must be configured for the production PostgreSQL database."
+        "DATABASE_URL must be configured for beta and production PostgreSQL databases."
     )
 
 if DATABASE_URL:
