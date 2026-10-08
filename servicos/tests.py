@@ -59,6 +59,26 @@ class ServiceEndpointTests(TestCase):
         )
         self.assertEqual(response.json()["servico"]["id"], service.id)
 
+    def test_optional_description_and_color_use_model_defaults(self):
+        response = self.client.post(
+            "/api/serv/create",
+            data={
+                "nome": "Serviço sem detalhes",
+                "preco": "20.00",
+                "duracao": 30,
+            },
+            content_type="application/json",
+            **self.headers(self.professional),
+        )
+
+        self.assertEqual(response.status_code, 201)
+        service = Servico.objects.get(
+            user=self.professional,
+            nome="Serviço sem detalhes",
+        )
+        self.assertEqual(service.descricao, "")
+        self.assertEqual(service.cor, "#000000")
+
     def test_invalid_price_and_duration_are_rejected(self):
         payloads = (
             {
@@ -76,6 +96,29 @@ class ServiceEndpointTests(TestCase):
                 "cor": "#000000",
             },
         )
+        for payload in payloads:
+            response = self.client.post(
+                "/api/serv/create",
+                data=payload,
+                content_type="application/json",
+                **self.headers(self.professional),
+            )
+            self.assertEqual(response.status_code, 400)
+
+    def test_invalid_service_types_are_rejected_without_server_error(self):
+        payloads = (
+            {
+                "nome": ["Corte"],
+                "preco": "10.00",
+                "duracao": 30,
+            },
+            {
+                "nome": "Preço não finito",
+                "preco": "NaN",
+                "duracao": 30,
+            },
+        )
+
         for payload in payloads:
             response = self.client.post(
                 "/api/serv/create",

@@ -12,6 +12,8 @@ def atualizar_servico(request, servico, data):
         nome = data["nome"].strip()
         if not nome:
             return None, "nome não pode ser vazio"
+        if len(nome) > 50:
+            return None, "nome deve ter no máximo 50 caracteres"
 
         if nome != servico.nome:
 
@@ -27,6 +29,15 @@ def atualizar_servico(request, servico, data):
 
         except (InvalidOperation, TypeError, ValueError):
             return None, "preço deve ser um número válido"
+
+        if not preco.is_finite():
+            return None, "preço deve ser um número válido"
+
+        if preco.as_tuple().exponent < -2:
+            return None, "preço deve ter no máximo duas casas decimais"
+
+        if abs(preco) >= Decimal("1000000"):
+            return None, "preço fora do limite permitido"
 
         if preco < 0:
             return None, "preço não pode ser negativo"

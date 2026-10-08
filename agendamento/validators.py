@@ -1,6 +1,6 @@
 import json
 from django.http import JsonResponse
-from datetime import datetime, date
+from datetime import datetime, date, time
 from django.utils import timezone
 
 
@@ -9,7 +9,7 @@ def validar_horario(horario):
     try:
         horario = datetime.fromisoformat(horario)
         
-    except ValueError:
+    except (TypeError, ValueError):
         return None, "formato de horário inválido"
         
     if timezone.is_naive(horario):
@@ -31,7 +31,7 @@ def validar_data(data_str):
     try:
         data = date.fromisoformat(data_str)
         
-    except ValueError:
+    except (TypeError, ValueError):
         return None, "formato de data inválido"
     
     if data < timezone.localdate():
@@ -47,7 +47,7 @@ def validar_data_consulta(data_str):
     try:
         data = date.fromisoformat(data_str)
         
-    except ValueError:
+    except (TypeError, ValueError):
         return None, "formato de data inválido"
     
     return data, None
@@ -55,17 +55,10 @@ def validar_data_consulta(data_str):
 def validar_horario_expediente(inicio_expediente, fim_expediente, inicio_almoco=None, fim_almoco=None):
 
     try:
-        horario_inicio = datetime.strptime(
-            inicio_expediente,
-            "%H:%M"
-        ).time()
+        horario_inicio = _parse_horario_expediente(inicio_expediente)
+        horario_fim = _parse_horario_expediente(fim_expediente)
 
-        horario_fim = datetime.strptime(
-            fim_expediente,
-            "%H:%M"
-        ).time()
-
-    except ValueError:
+    except (TypeError, ValueError):
         return None,None,None,None, "horário inválido"
         
     if horario_inicio >= horario_fim:
@@ -79,17 +72,10 @@ def validar_horario_expediente(inicio_expediente, fim_expediente, inicio_almoco=
 
 
     try:
-        comeco_almoco = datetime.strptime(
-            inicio_almoco,
-            "%H:%M"
-        ).time()
+        comeco_almoco = _parse_horario_expediente(inicio_almoco)
+        final_almoco = _parse_horario_expediente(fim_almoco)
 
-        final_almoco = datetime.strptime(
-            fim_almoco,
-            "%H:%M"
-        ).time()
-
-    except ValueError:
+    except (TypeError, ValueError):
         return None,None,None,None, "horário inválido"
 
     if final_almoco <= comeco_almoco:
@@ -99,3 +85,13 @@ def validar_horario_expediente(inicio_expediente, fim_expediente, inicio_almoco=
         return None,None,None,None, "horário de almoço deve estar dentro do expediente"
 
     return horario_inicio, horario_fim, comeco_almoco, final_almoco, None
+
+
+def _parse_horario_expediente(value):
+    if isinstance(value, time):
+        return value
+
+    if not isinstance(value, str):
+        raise TypeError
+
+    return datetime.strptime(value, "%H:%M").time()

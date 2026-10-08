@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from django.http import JsonResponse
 from public.models import Profile
 from django.utils.text import slugify
@@ -34,21 +34,19 @@ def atualizar_horario(profile, data):
 
     updated = False
 
-    inicio_expediente = data.get("horario_inicio")
-    fim_expediente = data.get("horario_fim")
-    inicio_almoco = data.get("inicio_almoco")
-    fim_almoco = data.get("fim_almoco")
-
-    if all(
-        value is None
-        for value in (
-            inicio_expediente,
-            fim_expediente,
-            inicio_almoco,
-            fim_almoco,
-        )
-    ):
+    schedule_fields = (
+        "horario_inicio",
+        "horario_fim",
+        "inicio_almoco",
+        "fim_almoco",
+    )
+    if not any(field in data for field in schedule_fields):
         return False, None
+
+    inicio_expediente = data.get("horario_inicio", profile.horario_inicio)
+    fim_expediente = data.get("horario_fim", profile.horario_fim)
+    inicio_almoco = data.get("inicio_almoco", profile.inicio_almoco)
+    fim_almoco = data.get("fim_almoco", profile.fim_almoco)
 
     horario_inicio, horario_fim, comeco_almoco, final_almoco, erro = validar_horario_expediente(
         inicio_expediente,
@@ -126,7 +124,10 @@ def atualizar_profile(profile, data):
             return None, "slug inválido"
 
         novo_slug = slug.strip().lower()
-        if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", novo_slug):
+        if (
+            len(novo_slug) > 100
+            or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", novo_slug)
+        ):
             return None, "slug inválido"
 
         conflito = Profile.objects.filter(
@@ -142,41 +143,46 @@ def atualizar_profile(profile, data):
             profile.public_slug = novo_slug
             updated = True
         
-    if "nome_negocio" in data and data["nome_negocio"].strip():
+    if "nome_negocio" in data:
+        if not isinstance(data["nome_negocio"], str):
+            return None, "nome inválido"
+
+        if data["nome_negocio"].strip():
+            nome_negocio = data["nome_negocio"].strip()
+
+            if len(nome_negocio) < 3:
+                return None, "nome deve ter mais de 3 caracteres"
+            if len(nome_negocio) > 100:
+                return None, "nome inválido"
+
+            if nome_negocio != profile.nome_negocio:
+                profile.nome_negocio = nome_negocio
+                updated = True
+
+    if "telefone" in data:
+        if not isinstance(data["telefone"], str):
+            return None, "telefone inválido"
+
+        if data["telefone"].strip():
+            telefone = data["telefone"]
+
+            telefone = (
+                telefone
+                .replace("(", "")
+                .replace(")", "")
+                .replace("-", "")
+                .replace(" ", "")
+            )
         
-        nome_negocio = data["nome_negocio"].strip()
+            if not telefone.isdigit():
+                return None, "o telefone deve conter apenás números"
         
-        if not nome_negocio:
-            return None, "nome é obrigatorio"
+            if len(telefone) not in [10, 11]:
+                return None, "formato de telefone inválido"
         
-        if len(nome_negocio) < 3:
-            return None, "nome deve ter mais de 3 caracteres"
-        
-        if nome_negocio != profile.nome_negocio:
-            profile.nome_negocio = data["nome_negocio"]
-            updated = True
-        
-    if "telefone" in data and data["telefone"].strip():
-        
-        telefone = data["telefone"]
-        
-        telefone = (
-            telefone
-            .replace("(", "")
-            .replace(")", "")
-            .replace("-", "")
-            .replace(" ", "")
-        )
-        
-        if not telefone.isdigit():
-            return None, "o telefone deve conter apenás números"
-        
-        if len(telefone) not in [10, 11]:
-            return None, "formato de telefone inválido"
-        
-        if telefone != profile.telefone:
-            profile.telefone = telefone
-            updated = True
+            if telefone != profile.telefone:
+                profile.telefone = telefone
+                updated = True
 
     if "endereco" in data:
         if not isinstance(data["endereco"], str):
@@ -184,7 +190,7 @@ def atualizar_profile(profile, data):
 
         endereco = data["endereco"].strip()
 
-        if endereco and len(endereco) < 5:
+        if endereco and (len(endereco) < 5 or len(endereco) > 100):
             return None, "endereço inválido"
 
         if endereco != profile.endereco:
@@ -196,6 +202,9 @@ def atualizar_profile(profile, data):
             return None, "instagram inválido"
 
         instagram = data["instagram"].strip()
+
+        if len(instagram) > 100:
+            return None, "instagram inválido"
 
         if instagram != profile.instagram:
             profile.instagram = instagram

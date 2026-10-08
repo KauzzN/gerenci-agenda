@@ -123,6 +123,31 @@ class PublicBookingTests(TestCase):
 
         self.assertFalse(self.client_record.agendamentos.exists())
 
+    def test_invalid_booking_datetime_is_rejected_without_server_error(self):
+        response = self.client.post(
+            "/api/public/barbearia-teste/agendar",
+            data={
+                "servicos": [self.service.id],
+                "horario_inicio": [],
+            },
+            content_type="application/json",
+            **self.headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_availability_date_is_rejected_without_server_error(self):
+        response = self.client.get(
+            "/api/public/barbearia-teste/horarios",
+            data={
+                "data": "data-inválida",
+                "servicos": [str(self.service.id)],
+            },
+            **self.headers(),
+        )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_missing_and_inactive_relationships_are_rejected(self):
         relation = ClienteProfissional.objects.get(
             cliente=self.client_record,

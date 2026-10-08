@@ -30,12 +30,17 @@ def create_service(request):
     nome = data.get("nome")
     preco = data.get("preco")
     duracao = data.get("duracao")
-    descricao = data.get("descricao")
-    cor = data.get("cor")
+    descricao = data.get("descricao", "")
+    cor = data.get("cor", "#000000")
 
-    if not nome:
+    if not isinstance(nome, str) or not nome.strip():
         return JsonResponse({
             "error": "nome do serviço é obrigatório"
+        }, status=400)
+    nome = nome.strip()
+    if len(nome) > 50:
+        return JsonResponse({
+            "error": "nome do serviço inválido"
         }, status=400)
 
     try:
@@ -43,6 +48,21 @@ def create_service(request):
     except (InvalidOperation, TypeError, ValueError):
         return JsonResponse({
             "error": "preço deve ser um número válido"
+        }, status=400)
+
+    if not preco.is_finite():
+        return JsonResponse({
+            "error": "preço deve ser um número válido"
+        }, status=400)
+
+    if preco.as_tuple().exponent < -2:
+        return JsonResponse({
+            "error": "preço deve ter no máximo duas casas decimais"
+        }, status=400)
+
+    if abs(preco) >= Decimal("1000000"):
+        return JsonResponse({
+            "error": "preço fora do limite permitido"
         }, status=400)
 
     if preco < 0:
@@ -55,14 +75,18 @@ def create_service(request):
             "error": "duração deve ser um número inteiro maior que zero"
         }, status=400)
 
-    if descricao is not None and (
-        not isinstance(descricao, str) or len(descricao) > 200
-    ):
+    if descricao is None:
+        descricao = ""
+
+    if not isinstance(descricao, str) or len(descricao) > 200:
         return JsonResponse({
             "error": "descrição inválida"
         }, status=400)
 
-    if cor is not None and (
+    if cor is None:
+        cor = "#000000"
+
+    if (
         not isinstance(cor, str)
         or len(cor) not in (4, 7)
         or not cor.startswith("#")

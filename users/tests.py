@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import time
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -77,6 +78,49 @@ class UpdateProfileTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.dias_funcionando, [])
+
+    def test_updates_only_lunch_using_existing_expedient(self):
+        self.profile.horario_inicio = time(8)
+        self.profile.horario_fim = time(18)
+        self.profile.inicio_almoco = time(12)
+        self.profile.fim_almoco = time(13)
+        self.profile.save()
+
+        response = self.update({
+            "inicio_almoco": "12:30",
+            "fim_almoco": "13:30",
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.horario_inicio, time(8))
+        self.assertEqual(self.profile.horario_fim, time(18))
+        self.assertEqual(self.profile.inicio_almoco, time(12, 30))
+        self.assertEqual(self.profile.fim_almoco, time(13, 30))
+
+    def test_rejects_partial_schedule_without_existing_expedient(self):
+        response = self.update({
+            "inicio_almoco": "12:30",
+            "fim_almoco": "13:30",
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("error", response.json())
+
+    def test_rejects_invalid_schedule_types_without_server_error(self):
+        response = self.update({
+            "horario_inicio": [],
+            "horario_fim": "18:00",
+        })
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_rejects_invalid_profile_field_types_without_server_error(self):
+        response = self.update({
+            "nome_negocio": ["Barbearia"],
+        })
+
+        self.assertEqual(response.status_code, 400)
 
     def test_rejects_invalid_working_days(self):
         response = self.update({"dias_funcionando": ["segunda", "invalido"]})
