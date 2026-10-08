@@ -1,9 +1,17 @@
+import logging
+
 from users.decorators import professional_required
 from servicos.models import Servico
 from django.http import JsonResponse
 from decimal import Decimal, InvalidOperation
 from agendamento.utils.agendamento_utils import parse_json_body
 from servicos.services import atualizar_servico
+
+
+from core.logging import log_event
+
+
+logger = logging.getLogger(__name__)
 
 
 @professional_required
@@ -84,6 +92,14 @@ def create_service(request):
         duracao=duracao,
         descricao=descricao,
         cor=cor
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "service.created",
+        service_id=servico.id,
+        user_id=user.id,
+        status_code=201,
     )
 
     return JsonResponse({
@@ -176,6 +192,7 @@ def update_service(request, service_id):
     if error:
         return error
 
+    previous_active = servico.ativo
     updated, error = atualizar_servico(request, servico, data)
     if error:
         return JsonResponse({
@@ -186,6 +203,20 @@ def update_service(request, service_id):
         return JsonResponse({
             "message": "nenhuma alteração realizada"
         }, status=200)
+
+    event = (
+        "service.status_updated"
+        if previous_active != servico.ativo
+        else "service.updated"
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        event,
+        service_id=servico.id,
+        user_id=user.id,
+        status_code=200,
+    )
 
     return JsonResponse({
         "message": "serviço atualizado",
@@ -217,7 +248,16 @@ def delete_service(request, service_id):
             "error": "serviço não encontrado"
         }, status=404)
 
+    deleted_service_id = servico.id
     servico.delete()
+    log_event(
+        logger,
+        logging.INFO,
+        "service.deleted",
+        service_id=deleted_service_id,
+        user_id=user.id,
+        status_code=200,
+    )
 
     return JsonResponse({
         "message": "serviço deletado com sucesso"

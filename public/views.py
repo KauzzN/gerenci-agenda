@@ -1,7 +1,10 @@
 from datetime import datetime, timedelta
+import logging
+
 from django.db import transaction
 from django.http import JsonResponse
 from django.utils import timezone
+from core.logging import log_event
 from agendamento.utils.agendamento_utils import parse_json_body
 from agendamento.validators import validar_data, validar_horario
 from agendamento.booking_rules import (
@@ -15,6 +18,9 @@ from cliente.models import ClienteProfissional
 from servicos.models import Servico
 from users.decorators import client_required
 from .models import Profile
+
+
+logger = logging.getLogger(__name__)
 
 
 @client_required
@@ -177,6 +183,14 @@ def agendar_horario(request, slug_barber):
             horario_inicio,
             horario_fim,
         ):
+            log_event(
+                logger,
+                logging.INFO,
+                "booking.conflict",
+                professional_id=profile.user_id,
+                client_id=request.cliente.id,
+                status_code=409,
+            )
             return JsonResponse({
                 "error": "horário já agendado"
             }, status=409)
@@ -194,6 +208,16 @@ def agendar_horario(request, slug_barber):
             )
             for service in services
         ])
+
+    log_event(
+        logger,
+        logging.INFO,
+        "booking.created",
+        booking_id=agendamento.id,
+        professional_id=profile.user_id,
+        client_id=request.cliente.id,
+        status_code=201,
+    )
 
     return JsonResponse({
         "message": "horário agendado com sucesso",

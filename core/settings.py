@@ -245,9 +245,25 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "request_context": {
+            "()": "core.logging.RequestContextFilter",
+        },
+    },
+    "formatters": {
+        "console": {
+            "format": (
+                "%(asctime)s %(levelname)s "
+                "request_id=%(request_id)s %(message)s"
+            ),
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
+            "filters": ["request_context"],
+            "formatter": "console",
         },
     },
     "root":{

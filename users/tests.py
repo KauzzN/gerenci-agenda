@@ -1,6 +1,10 @@
+import logging
+import re
+
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
+from core.logging import log_event
 from public.models import Profile
 from users.services.token_services import generate_access_token
 
@@ -121,3 +125,64 @@ class UpdateProfileTests(TestCase):
         self.assertEqual(self.profile.endereco, "")
         self.assertEqual(self.profile.instagram, "")
         self.assertEqual(self.profile.descricao, "")
+
+
+class LoggingFoundationTests(TestCase):
+    def test_request_id_is_returned_and_reuses_a_valid_value(self):
+        response = self.client.get(
+            "/api/usr/me",
+            HTTP_X_REQUEST_ID="request-test-123",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(
+            response.headers["X-Request-ID"],
+            "request-test-123",
+        )
+
+    def test_request_id_is_generated_for_invalid_values(self):
+        response = self.client.get(
+            "/api/usr/me",
+            HTTP_X_REQUEST_ID="invalid request id",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertRegex(
+            response.headers["X-Request-ID"],
+            re.compile(r"^[0-9a-f-]{36}$"),
+        )
+
+    def test_login_failure_is_logged_without_credentials(self):
+        with self.assertLogs("users.views", level=logging.WARNING) as captured:
+            response = self.client.post(
+                "/api/usr/login",
+                data={
+                    "username": "missing-user",
+                    "password": "not-logged",
+                },
+                content_type="application/json",
+            )
+
+        self.assertEqual(response.status_code, 404)
+        output = "\n".join(captured.output)
+        self.assertIn("event=auth.login_failed", output)
+        self.assertIn("reason=invalid_credentials", output)
+        self.assertNotIn("not-logged", output)
+
+    def test_log_event_filters_sensitive_fields(self):
+        with self.assertLogs("users.tests", level=logging.INFO) as captured:
+            log_event(
+                logging.getLogger("users.tests"),
+                logging.INFO,
+                "test.event",
+                user_id=42,
+                password="secret",
+                access_token="token",
+                safe_value="present",
+            )
+
+        output = "\n".join(captured.output)
+        self.assertIn("event=test.event", output)
+        self.assertIn("safe_value=present", output)
+        self.assertNotIn("secret", output)
+        self.assertNotIn("token", output)

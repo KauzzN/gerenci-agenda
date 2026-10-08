@@ -1,5 +1,8 @@
+import logging
+
 from django.http import JsonResponse
 
+from core.logging import log_event
 from users.decorators import client_required, professional_required
 from django.contrib.auth.models import User
 from .services import validar_cliente, validar_telefone
@@ -7,6 +10,9 @@ from agendamento.utils.agendamento_utils import parse_json_body
 from .models import Cliente, ClienteProfissional
 from public.models import Profile
 from users.services.token_services import generate_tokens
+
+
+logger = logging.getLogger(__name__)
 
 
 def cliente_entry(request, slug_barber):
@@ -32,7 +38,8 @@ def cliente_entry(request, slug_barber):
             "error": str(erro)
         }, status=400)
 
-    if cliente is None:
+    client_created = cliente is None
+    if client_created:
         telefone, error = validar_telefone(data["telefone"])
         if error:
             return JsonResponse({
@@ -51,12 +58,32 @@ def cliente_entry(request, slug_barber):
     else:
         user = cliente.user
 
-    ClienteProfissional.objects.get_or_create(
+    _, relation_created = ClienteProfissional.objects.get_or_create(
         cliente=cliente,
         profile=profile
     )
 
     tokens = generate_tokens(user)
+    if client_created:
+        log_event(
+            logger,
+            logging.INFO,
+            "client.created",
+            client_id=cliente.id,
+            professional_id=profile.user_id,
+            user_id=user.id,
+            status_code=201,
+        )
+    elif relation_created:
+        log_event(
+            logger,
+            logging.INFO,
+            "client.professional_linked",
+            client_id=cliente.id,
+            professional_id=profile.user_id,
+            user_id=user.id,
+            status_code=201,
+        )
 
     return JsonResponse({
         "message": "cliente autenticado",
