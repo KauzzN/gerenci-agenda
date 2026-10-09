@@ -31,6 +31,7 @@ def _serialize_agendamento(agendamento):
                 "nome": item.servico.nome,
                 "duracao": item.servico.duracao,
                 "preco": str(item.servico.preco),
+                "cor": item.servico.cor,
             }
             for item in agendamento.itens.select_related("servico").all()
         ],
