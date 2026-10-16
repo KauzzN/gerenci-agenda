@@ -66,12 +66,12 @@ class PublicBookingTests(TestCase):
     def start(self, hour=10):
         return timezone.make_aware(datetime(2030, 1, 7, hour))
 
-    def post_booking(self, services):
+    def post_booking(self, services, start=None):
         return self.client.post(
             "/api/public/barbearia-teste/agendar",
             data={
                 "servicos": services,
-                "horario_inicio": self.start().isoformat(),
+                "horario_inicio": (start or self.start()).isoformat(),
             },
             content_type="application/json",
             **self.headers(),
@@ -85,6 +85,7 @@ class PublicBookingTests(TestCase):
         self.assertEqual(response.json()["endereco"], "Rua das Flores, 10")
         self.assertEqual(response.json()["instagram"], "@barbearia")
         self.assertEqual(response.json()["descricao"], "Cortes e cuidados.")
+        self.assertEqual(response.json()["dias_funcionando"], list(range(7)))
         self.assertEqual(response.json()["servicos"][0]["id"], self.service.id)
 
     def test_unknown_public_slug_returns_not_found(self):
@@ -146,6 +147,65 @@ class PublicBookingTests(TestCase):
             **self.headers(),
         )
 
+        self.assertEqual(response.status_code, 400)
+
+    def test_availability_respects_disabled_and_enabled_sunday(self):
+        sunday = timezone.make_aware(datetime(2030, 1, 13, 10))
+
+        self.profile.dias_funcionando = ["segunda"]
+        self.profile.save(update_fields=["dias_funcionando"])
+        response = self.client.get(
+            "/api/public/barbearia-teste/horarios",
+            data={
+                "data": "2030-01-13",
+                "servicos": [str(self.service.id)],
+            },
+            **self.headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["horarios"], [])
+
+        self.profile.dias_funcionando = ["domingo"]
+        self.profile.save(update_fields=["dias_funcionando"])
+        response = self.client.get(
+            "/api/public/barbearia-teste/horarios",
+            data={
+                "data": "2030-01-13",
+                "servicos": [str(self.service.id)],
+            },
+            **self.headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["horarios"])
+
+        response = self.post_booking([self.service.id], start=sunday)
+        self.assertEqual(response.status_code, 201)
+
+    def test_empty_working_days_do_not_authorize_availability_or_booking(self):
+        self.profile.dias_funcionando = []
+        self.profile.save(update_fields=["dias_funcionando"])
+
+        response = self.client.get(
+            "/api/public/barbearia-teste/horarios",
+            data={
+                "data": "2030-01-07",
+                "servicos": [str(self.service.id)],
+            },
+            **self.headers(),
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.post_booking([self.service.id])
+        self.assertEqual(response.status_code, 400)
+
+    def test_booking_rejects_disabled_day_directly(self):
+        self.profile.dias_funcionando = ["segunda"]
+        self.profile.save(update_fields=["dias_funcionando"])
+
+        response = self.post_booking(
+            [self.service.id],
+            start=timezone.make_aware(datetime(2030, 1, 13, 10)),
+        )
         self.assertEqual(response.status_code, 400)
 
     def test_missing_and_inactive_relationships_are_rejected(self):

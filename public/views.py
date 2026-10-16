@@ -9,6 +9,7 @@ from agendamento.utils.agendamento_utils import parse_json_body
 from agendamento.validators import validar_data, validar_horario
 from agendamento.booking_rules import (
     has_schedule_conflict,
+    is_working_day,
     load_active_services,
     parse_service_ids,
     within_business_hours,
@@ -67,6 +68,14 @@ def horarios_disponiveis(request, slug_barber):
         return JsonResponse({
             "error": "expediente não configurado"
         }, status=400)
+
+    if not is_working_day(profile, data_formatada):
+        return JsonResponse({
+            "barbearia": profile.nome_negocio,
+            "slug": profile.public_slug,
+            "data": str(data_formatada),
+            "horarios": []
+        }, status=200)
 
     duracao_total = sum(service.duracao for service in services)
     inicio_dia = timezone.make_aware(
@@ -267,6 +276,7 @@ def read_profile(request, slug_barber):
         "endereco": profile.endereco,
         "instagram": profile.instagram,
         "descricao": profile.descricao,
+        "dias_funcionando": profile.dias_funcionando,
         "servicos": [
             {
                 "id": service.id,
