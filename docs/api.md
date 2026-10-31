@@ -92,6 +92,30 @@ Criação de agendamento:
 }
 ```
 
+As respostas de agendamento mantêm os campos existentes e incluem `valor_total`.
+Cada item em `servicos` contém `preco` e `preco_unitario`, ambos representando
+o preço histórico persistido no momento em que o item foi incluído:
+
+```json
+{
+  "valor_total": "70.00",
+  "servicos": [
+    {
+      "id": 2,
+      "nome": "Corte",
+      "duracao": 30,
+      "preco": "35.00",
+      "preco_unitario": "35.00",
+      "cor": "#000000"
+    }
+  ]
+}
+```
+
+Para itens existentes antes da migração de preços históricos, o valor
+preenchido é o preço atual do serviço no momento da migração. Esse valor é uma
+aproximação e não comprova o preço efetivamente cobrado na época.
+
 ## Booking público
 
 | Método e caminho | Auth | Finalidade | Sucesso |

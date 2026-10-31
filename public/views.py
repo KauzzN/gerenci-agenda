@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 import logging
 
 from django.db import transaction
@@ -213,7 +214,8 @@ def agendar_horario(request, slug_barber):
         ItemAgendamento.objects.bulk_create([
             ItemAgendamento(
                 agendamento=agendamento,
-                servico=service
+                servico=service,
+                preco_unitario=service.preco
             )
             for service in services
         ])
@@ -228,6 +230,12 @@ def agendar_horario(request, slug_barber):
         status_code=201,
     )
 
+    itens = list(agendamento.itens.select_related("servico").all())
+    valor_total = sum(
+        (item.preco_unitario for item in itens),
+        Decimal("0.00")
+    )
+
     return JsonResponse({
         "message": "horário agendado com sucesso",
         "agendamento": {
@@ -236,13 +244,15 @@ def agendar_horario(request, slug_barber):
             "cliente": agendamento.cliente.nome,
             "servicos": [
                 {
-                    "id": service.id,
-                    "nome": service.nome,
-                    "duracao": service.duracao,
-                    "preco": str(service.preco),
+                    "id": item.servico_id,
+                    "nome": item.servico.nome,
+                    "duracao": item.servico.duracao,
+                    "preco": str(item.preco_unitario),
+                    "preco_unitario": str(item.preco_unitario),
                 }
-                for service in services
+                for item in itens
             ],
+            "valor_total": str(valor_total),
             "horario_inicio": horario_inicio.isoformat(),
             "horario_fim": horario_fim.isoformat(),
             "status": agendamento.status,

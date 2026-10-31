@@ -102,6 +102,22 @@ class PublicBookingTests(TestCase):
             booking.horario_fim - booking.horario_inicio,
             timedelta(minutes=60),
         )
+        self.assertEqual(response.json()["agendamento"]["valor_total"], "70.00")
+        self.assertEqual(
+            [item.preco_unitario for item in booking.itens.order_by("servico_id")],
+            [Decimal("35.00"), Decimal("35.00")],
+        )
+
+    def test_booking_price_is_not_changed_when_service_price_is_updated(self):
+        response = self.post_booking([self.service.id])
+        self.assertEqual(response.status_code, 201)
+
+        self.service.preco = Decimal("50.00")
+        self.service.save(update_fields=["preco"])
+
+        booking = self.client_record.agendamentos.get()
+        item = booking.itens.get()
+        self.assertEqual(item.preco_unitario, Decimal("35.00"))
 
     def test_unavailable_service_inputs_are_rejected(self):
         inactive = self.create_service("Inativo", 30, active=False)

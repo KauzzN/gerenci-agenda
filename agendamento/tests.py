@@ -11,7 +11,7 @@ from servicos.models import Servico
 from users.services.token_services import generate_access_token
 
 from .booking_rules import has_schedule_conflict, within_business_hours
-from .models import Agendamento
+from .models import Agendamento, ItemAgendamento
 
 
 class SchedulingTestMixin:
@@ -252,6 +252,9 @@ class CreateScheduleEndpointTests(SchedulingTestMixin, TestCase):
         agendamento = response.json()["agendamento"]
         self.assertEqual(agendamento["cliente_id"], self.client_record.id)
         self.assertEqual(agendamento["servicos"][0]["id"], self.service.id)
+        self.assertEqual(agendamento["servicos"][0]["preco"], "35.00")
+        self.assertEqual(agendamento["servicos"][0]["preco_unitario"], "35.00")
+        self.assertEqual(agendamento["valor_total"], "35.00")
         self.assertEqual(agendamento["status"], Agendamento.Status.PENDENTE)
         self.assertEqual(
             datetime.fromisoformat(agendamento["horario_fim"])
@@ -259,6 +262,37 @@ class CreateScheduleEndpointTests(SchedulingTestMixin, TestCase):
             timedelta(minutes=30),
         )
         self.assertEqual(Agendamento.objects.count(), 1)
+
+    def test_update_preserves_existing_price_and_snapshots_new_service_price(self):
+        first_response = self.create()
+        self.assertEqual(first_response.status_code, 201)
+        agendamento = Agendamento.objects.get()
+        second_service = self.create_service(self.professional, "Barba")
+        second_service.preco = Decimal("42.50")
+        second_service.save(update_fields=["preco"])
+        self.service.preco = Decimal("40.00")
+        self.service.save(update_fields=["preco"])
+
+        response = self.client.put(
+            f"/api/agendar/update/{agendamento.id}",
+            data={
+                "cliente_id": self.client_record.id,
+                "servicos": [self.service.id, second_service.id],
+                "horario_inicio": self.future_datetime(13).isoformat(),
+                "status": Agendamento.Status.PENDENTE,
+            },
+            content_type="application/json",
+            **self.headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["agendamento"]["valor_total"], "77.50")
+        items = {
+            item.servico_id: item
+            for item in ItemAgendamento.objects.filter(agendamento=agendamento)
+        }
+        self.assertEqual(items[self.service.id].preco_unitario, Decimal("35.00"))
+        self.assertEqual(items[second_service.id].preco_unitario, Decimal("42.50"))
 
     def test_create_rejects_missing_client_or_services_without_persisting(self):
         for overrides in (

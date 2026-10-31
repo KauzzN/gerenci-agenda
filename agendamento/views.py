@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from django.http import JsonResponse
 
 
@@ -21,6 +22,12 @@ from .booking_rules import (
 )
 
 def _serialize_agendamento(agendamento):
+    itens = list(agendamento.itens.select_related("servico").all())
+    valor_total = sum(
+        (item.preco_unitario for item in itens),
+        Decimal("0.00")
+    )
+
     return {
         "id": agendamento.id,
         "cliente_id": agendamento.cliente_id,
@@ -30,11 +37,13 @@ def _serialize_agendamento(agendamento):
                 "id": item.servico_id,
                 "nome": item.servico.nome,
                 "duracao": item.servico.duracao,
-                "preco": str(item.servico.preco),
+                "preco": str(item.preco_unitario),
+                "preco_unitario": str(item.preco_unitario),
                 "cor": item.servico.cor,
             }
-            for item in agendamento.itens.select_related("servico").all()
+            for item in itens
         ],
+        "valor_total": str(valor_total),
         "horario_inicio": agendamento.horario_inicio.isoformat(),
         "horario_fim": agendamento.horario_fim.isoformat(),
         "status": agendamento.status,
@@ -324,7 +333,8 @@ def criar_agendamento(request):
         for servico in lista_servicos:
             ItemAgendamento.objects.create(
                 agendamento=agendamento,
-                servico=servico
+                servico=servico,
+                preco_unitario=servico.preco
             )
 
 
@@ -489,9 +499,21 @@ def update_agendamentos(request, id_agend):
         agendamento.horario_fim = horario_fim
         agendamento.status = status
         agendamento.save()
+        existing_items = {
+            item.servico_id: item
+            for item in agendamento.itens.all()
+        }
         agendamento.itens.all().delete()
         ItemAgendamento.objects.bulk_create([
-            ItemAgendamento(agendamento=agendamento, servico=servico)
+            ItemAgendamento(
+                agendamento=agendamento,
+                servico=servico,
+                preco_unitario=(
+                    existing_items[servico.id].preco_unitario
+                    if servico.id in existing_items
+                    else servico.preco
+                )
+            )
             for servico in lista_servicos
         ])
     

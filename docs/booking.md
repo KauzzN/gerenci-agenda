@@ -75,6 +75,12 @@ Um booking público cria `Agendamento` com status inicial `PENDENTE` e os
 `ItemAgendamento` correspondentes. Ele aparece na Agenda profissional. O
 Histórico lista agendamentos cujo status não é `PENDENTE`.
 
+Cada `ItemAgendamento` preserva o preço unitário usado quando o serviço foi
+incluído. O total exibido na Agenda e no Histórico é a soma desses preços
+persistidos, não o preço atual do cadastro de `Servico`. Para itens criados
+antes da migração desse campo, o valor preenchido é uma aproximação baseada no
+preço atual do serviço durante a migração.
+
 O cancelamento profissional altera o status para `CANCELADO`; o registro
 permanece disponível para o histórico.
 

@@ -69,6 +69,11 @@ class ItemAgendamento(models.Model):
         related_name="itens_agendamento"
     )
 
+    preco_unitario = models.DecimalField(
+        max_digits=8,
+        decimal_places=2
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -76,4 +81,3 @@ class ItemAgendamento(models.Model):
                 name="servico_unico_por_agendamento"
         )
     ]
-
